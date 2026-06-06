@@ -218,10 +218,21 @@ class ParentNotification {
 // ── API Client ────────────────────────────────────────────────────────────────
 
 class ParentApiClient {
-  static const _baseUrl = 'https://edutrack-api-6382035856.asia-south1.run.app';
+  static const defaultBaseUrl = 'https://edutrack-api-6382035856.asia-south1.run.app';
+  static const _prefKeyUrl = 'parent_server_url';
   static const _prefKeyToken = 'parent_auth_token';
 
   static Future<void> Function()? onUnauthorized;
+
+  static Future<String> getBaseUrl() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_prefKeyUrl) ?? defaultBaseUrl;
+  }
+
+  static Future<void> setBaseUrl(String url) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_prefKeyUrl, url.trim().replaceAll(RegExp(r'/$'), ''));
+  }
 
   static Future<String?> getToken() async {
     final p = await SharedPreferences.getInstance();
@@ -246,8 +257,9 @@ class ParentApiClient {
   }
 
   static Future<dynamic> _get(String path) async {
+    final base = await getBaseUrl();
     final res = await http.get(
-      Uri.parse('$_baseUrl$path'),
+      Uri.parse('$base$path'),
       headers: await _headers(),
     ).timeout(const Duration(seconds: 20));
     if (res.statusCode == 401) {
@@ -262,8 +274,9 @@ class ParentApiClient {
   }
 
   static Future<dynamic> _post(String path, Map<String, dynamic> body) async {
+    final base = await getBaseUrl();
     final res = await http.post(
-      Uri.parse('$_baseUrl$path'),
+      Uri.parse('$base$path'),
       headers: await _headers(),
       body: jsonEncode(body),
     ).timeout(const Duration(seconds: 20));
