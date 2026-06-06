@@ -10,6 +10,11 @@ import 'tests.dart';
 import 'work_log.dart';
 import 'notifications.dart';
 import 'profile.dart';
+import 'school_contacts.dart';
+import 'student_profile.dart';
+import 'settings.dart';
+import 'about.dart';
+import 'faq.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +24,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   int _idx = 0;
   List<ChildInfo> _children = [];
   int _childIdx = 0;
@@ -39,16 +45,21 @@ class _HomeScreenState extends State<HomeScreen> {
       final childList = (data['children'] as List<dynamic>? ?? [])
           .map((e) => ChildInfo.fromJson(e as Map<String, dynamic>))
           .toList();
-      setState(() { _children = childList; _loadingProfile = false; });
+      if (mounted) setState(() { _children = childList; _loadingProfile = false; });
     } catch (_) {
-      setState(() => _loadingProfile = false);
+      if (mounted) setState(() => _loadingProfile = false);
     }
   }
 
   List<Widget> get _screens {
     final child = _activeChild;
     return [
-      _HomeTab(child: child),
+      _HomeTab(
+        child: child,
+        children: _children,
+        onSwitchTab: (i) => setState(() => _idx = i),
+        onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+      ),
       AttendanceScreen(child: child),
       TestsScreen(child: child),
       WorkLogScreen(child: child),
@@ -56,8 +67,11 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
+  void _navigate(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+
   @override
   Widget build(BuildContext context) {
+    final auth = context.read<ParentAuthProvider>();
     return PopScope(
       canPop: false,
       onPopInvoked: (_) {
@@ -74,11 +88,21 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
       child: Scaffold(
+        key: _scaffoldKey,
+        drawer: _AppDrawer(
+          parentName: auth.user?.parentName ?? '',
+          initials: auth.initials,
+          onProfile: () { setState(() => _idx = 4); Navigator.pop(context); },
+          onSchoolContacts: () { Navigator.pop(context); _navigate(SchoolContactsScreen(children: _children)); },
+          onSettings: () { Navigator.pop(context); _navigate(const SettingsScreen()); },
+          onFaq: () { Navigator.pop(context); _navigate(const FAQScreen()); },
+          onAbout: () { Navigator.pop(context); _navigate(const AboutScreen()); },
+          onLogout: () async { Navigator.pop(context); await auth.logout(); },
+        ),
         body: _loadingProfile
             ? const Center(child: CircularProgressIndicator(color: AppColors.teal))
             : Column(
                 children: [
-                  // Child switcher bar (visible when multiple children)
                   if (_children.length > 1) _ChildSwitcher(
                     children: _children,
                     activeIdx: _childIdx,
@@ -111,6 +135,109 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+// ── Side Drawer ───────────────────────────────────────────────────────────────
+
+class _AppDrawer extends StatelessWidget {
+  final String parentName;
+  final String initials;
+  final VoidCallback onProfile;
+  final VoidCallback onSchoolContacts;
+  final VoidCallback onSettings;
+  final VoidCallback onFaq;
+  final VoidCallback onAbout;
+  final VoidCallback onLogout;
+
+  const _AppDrawer({
+    required this.parentName,
+    required this.initials,
+    required this.onProfile,
+    required this.onSchoolContacts,
+    required this.onSettings,
+    required this.onFaq,
+    required this.onAbout,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 50, height: 50,
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.25), shape: BoxShape.circle),
+                    child: Center(child: Text(initials, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white))),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(parentName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+                        const Text('Parent', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _DrawerItem(icon: Icons.person_outline, label: 'My Profile', onTap: onProfile),
+                  _DrawerItem(icon: Icons.school_outlined, label: 'School Contacts', onTap: onSchoolContacts),
+                  const Divider(indent: 16, endIndent: 16),
+                  _DrawerItem(icon: Icons.settings_outlined, label: 'Settings', onTap: onSettings),
+                  _DrawerItem(icon: Icons.help_outline, label: 'FAQ', onTap: onFaq),
+                  _DrawerItem(icon: Icons.info_outline, label: 'About Us', onTap: onAbout),
+                ],
+              ),
+            ),
+            const Divider(),
+            _DrawerItem(
+              icon: Icons.logout,
+              label: 'Logout',
+              color: AppColors.coral,
+              onTap: onLogout,
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+
+  const _DrawerItem({required this.icon, required this.label, required this.onTap, this.color});
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        leading: Icon(icon, color: color ?? AppColors.text2, size: 22),
+        title: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color ?? AppColors.text)),
+        onTap: onTap,
+        dense: true,
+      );
 }
 
 // ── Child Switcher ────────────────────────────────────────────────────────────
@@ -172,7 +299,11 @@ class _ChildSwitcher extends StatelessWidget {
 
 class _HomeTab extends StatefulWidget {
   final ChildInfo? child;
-  const _HomeTab({this.child});
+  final List<ChildInfo> children;
+  final void Function(int) onSwitchTab;
+  final VoidCallback? onMenuTap;
+
+  const _HomeTab({this.child, required this.children, required this.onSwitchTab, this.onMenuTap});
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -180,8 +311,6 @@ class _HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<_HomeTab> {
   AttendanceSummary? _attendance;
-  List<TestResult> _recentTests = [];
-  List<WorkLogItem> _recentLogs = [];
   bool _loading = true;
 
   @override
@@ -198,25 +327,18 @@ class _HomeTabState extends State<_HomeTab> {
 
   Future<void> _load() async {
     final child = widget.child;
-    if (child == null) { setState(() => _loading = false); return; }
-    setState(() => _loading = true);
+    if (child == null) { if (mounted) setState(() => _loading = false); return; }
+    if (mounted) setState(() => _loading = true);
     try {
       final now = DateTime.now();
-      final results = await Future.wait([
-        ParentApiClient.getAttendance(child.studentId, month: now.month, year: now.year),
-        ParentApiClient.getTests(child.studentId),
-        ParentApiClient.getWorkLogs(child.studentId),
-      ]);
-      setState(() {
-        _attendance = results[0] as AttendanceSummary;
-        _recentTests = (results[1] as List<TestResult>).take(3).toList();
-        _recentLogs = (results[2] as List<WorkLogItem>).take(5).toList();
-        _loading = false;
-      });
+      final att = await ParentApiClient.getAttendance(child.studentId, month: now.month, year: now.year);
+      if (mounted) setState(() { _attendance = att; _loading = false; });
     } catch (_) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
+
+  void _push(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
 
   @override
   Widget build(BuildContext context) {
@@ -235,22 +357,25 @@ class _HomeTabState extends State<_HomeTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Header
+                      // Header with drawer toggle
                       Container(
                         color: Colors.white,
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                         child: Row(
                           children: [
-                            Container(
-                              width: 44, height: 44,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  child?.studentName[0] ?? '?',
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                            GestureDetector(
+                              onTap: widget.onMenuTap,
+                              child: Container(
+                                width: 44, height: 44,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    child?.studentName[0] ?? '?',
+                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                                  ),
                                 ),
                               ),
                             ),
@@ -271,6 +396,10 @@ class _HomeTabState extends State<_HomeTab> {
                                 ],
                               ),
                             ),
+                            IconButton(
+                              icon: const Icon(Icons.menu, color: AppColors.text2),
+                              onPressed: widget.onMenuTap,
+                            ),
                           ],
                         ),
                       ),
@@ -283,9 +412,11 @@ class _HomeTabState extends State<_HomeTab> {
                               children: [
                                 Text('👶', style: TextStyle(fontSize: 48)),
                                 SizedBox(height: 12),
-                                Text('No children linked yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.text)),
+                                Text('No children linked yet',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.text)),
                                 SizedBox(height: 8),
-                                Text('Go to Profile → Add Child to link your child\'s account.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+                                Text('Go to Profile → Add Child to link your child\'s account.',
+                                    textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
                               ],
                             ),
                           ),
@@ -293,8 +424,8 @@ class _HomeTabState extends State<_HomeTab> {
                       ] else ...[
                         const SizedBox(height: 16),
 
-                        // Attendance this month
-                        if (_attendance != null) ...[
+                        // Attendance quick stats
+                        if (_attendance != null)
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Column(
@@ -310,137 +441,43 @@ class _HomeTabState extends State<_HomeTab> {
                                     Expanded(child: InfoCard(label: 'Late', value: '${_attendance!.late}', color: AppColors.amber, icon: '⏰')),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                // Attendance %
-                                if (_attendance!.total > 0)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: AppColors.border),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Text('Overall Attendance', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text)),
-                                        const Spacer(),
-                                        Text(
-                                          '${(_attendance!.present / _attendance!.total * 100).toStringAsFixed(1)}%',
-                                          style: TextStyle(
-                                            fontSize: 16, fontWeight: FontWeight.w900,
-                                            color: _attendance!.present / _attendance!.total > 0.75 ? AppColors.teal : AppColors.coral,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 16),
-                        ],
 
-                        // Recent tests
-                        if (_recentTests.isNotEmpty) ...[
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SectionHeader('RECENT RESULTS'),
-                                ..._recentTests.map((t) => Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.border),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(t.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.text)),
-                                            if (t.subjectName != null) Text(t.subjectName!, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-                                          ],
-                                        ),
-                                      ),
-                                      if (t.isAbsent)
-                                        statusBadge('absent')
-                                      else if (t.marksObtained != null)
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.end,
-                                          children: [
-                                            Text('${t.marksObtained!.toStringAsFixed(0)}/${t.totalMarks.toStringAsFixed(0)}',
-                                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.text)),
-                                            if (t.percentage != null)
-                                              Text('${t.percentage!.toStringAsFixed(1)}%',
-                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                                                      color: (t.percentage ?? 0) >= 60 ? AppColors.teal : AppColors.coral)),
-                                          ],
-                                        ),
-                                    ],
-                                  ),
-                                )),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                        const SizedBox(height: 20),
 
-                        // Recent work logs
-                        if (_recentLogs.isNotEmpty) ...[
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SectionHeader('RECENT WORK LOG'),
-                                ..._recentLogs.map((w) => Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.border),
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 34, height: 34,
-                                        decoration: BoxDecoration(
-                                          color: w.logType == 'homework' ? AppColors.sunLight : AppColors.violetLight,
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        child: Center(child: Text(w.logType == 'homework' ? '📚' : '✏️', style: const TextStyle(fontSize: 16))),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(w.description, maxLines: 2, overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.text)),
-                                            const SizedBox(height: 2),
-                                            Text('${w.subjectName ?? ''} · ${fmtDate(w.date)}',
-                                                style: const TextStyle(fontSize: 10, color: AppColors.muted)),
-                                            if (w.dueDate != null)
-                                              Text('Due: ${fmtDate(w.dueDate!)}',
-                                                  style: const TextStyle(fontSize: 10, color: AppColors.coral, fontWeight: FontWeight.w600)),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )),
-                              ],
-                            ),
+                        // Feature grid
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _GridSection(title: 'ACADEMICS', tiles: [
+                                _Tile('📋', 'Attendance', AppColors.teal, AppColors.tealLight, () => widget.onSwitchTab(1)),
+                                _Tile('📊', 'Results', AppColors.violet, AppColors.violetLight, () => widget.onSwitchTab(2)),
+                                _Tile('📚', 'Work Log', AppColors.sun, AppColors.sunLight, () => widget.onSwitchTab(3)),
+                              ]),
+                              const SizedBox(height: 16),
+                              _GridSection(title: 'COMMUNICATION', tiles: [
+                                _Tile('🔔', 'Notifications', AppColors.sky, AppColors.skyLight,
+                                    () => _push(NotificationsScreen(child: child))),
+                              ]),
+                              const SizedBox(height: 16),
+                              _GridSection(title: 'SCHOOL INFO', tiles: [
+                                _Tile('🏫', 'School Contacts', AppColors.teal, AppColors.tealLight,
+                                    () => _push(SchoolContactsScreen(children: widget.children))),
+                                _Tile('🎓', 'Student Profile', AppColors.violet, AppColors.violetLight,
+                                    () => _push(StudentProfileScreen(child: child))),
+                              ]),
+                              const SizedBox(height: 16),
+                              _GridSection(title: 'ACCOUNT', tiles: [
+                                _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen())),
+                              ]),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                        ],
+                        ),
+                        const SizedBox(height: 24),
                       ],
                     ],
                   ),
@@ -449,6 +486,75 @@ class _HomeTabState extends State<_HomeTab> {
       ),
     );
   }
+}
+
+// ── Feature Grid ──────────────────────────────────────────────────────────────
+
+class _Tile {
+  final String emoji;
+  final String label;
+  final Color color;
+  final Color bg;
+  final VoidCallback onTap;
+  const _Tile(this.emoji, this.label, this.color, this.bg, this.onTap);
+}
+
+class _GridSection extends StatelessWidget {
+  final String title;
+  final List<_Tile> tiles;
+  const _GridSection({required this.title, required this.tiles});
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(title),
+          GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.0,
+            children: tiles.map((t) => _GridTile(tile: t)).toList(),
+          ),
+        ],
+      );
+}
+
+class _GridTile extends StatelessWidget {
+  final _Tile tile;
+  const _GridTile({required this.tile});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: tile.onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border, width: 1.5),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(color: tile.bg, borderRadius: BorderRadius.circular(13)),
+                child: Center(child: Text(tile.emoji, style: const TextStyle(fontSize: 22))),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tile.label,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 // ── Nav Item ──────────────────────────────────────────────────────────────────

@@ -367,6 +367,16 @@ class ParentApiClient {
     final list = data as List<dynamic>;
     return list.map((e) => ParentNotification.fromJson(e as Map<String, dynamic>)).toList();
   }
+
+  static Future<Map<String, dynamic>> getSchoolContacts(int schoolId) async {
+    final data = await _get('/api/v1/parent/school/$schoolId/contacts');
+    return data as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getChildProfile(int studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/profile');
+    return data as Map<String, dynamic>;
+  }
 }
 
 class ApiError implements Exception {
