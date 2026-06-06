@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/auth.dart';
@@ -19,12 +20,14 @@ class _LoginScreenState extends State<LoginScreen> {
   final _codeCtrl = TextEditingController();
   bool _loading = false;
   String? _error;
-  String _serverUrl = ParentApiClient.defaultBaseUrl;
+  bool _isProd = true; // true = Production, false = Dev
 
   @override
   void initState() {
     super.initState();
-    ParentApiClient.getBaseUrl().then((url) { if (mounted) setState(() => _serverUrl = url); });
+    ParentApiClient.getBaseUrl().then((url) {
+      if (mounted) setState(() => _isProd = url == ParentApiClient.defaultBaseUrl || !url.contains('10.0.2.2'));
+    });
   }
 
   @override
@@ -33,30 +36,9 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _changeServer() async {
-    final ctrl = TextEditingController(text: _serverUrl);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Server URL', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-        content: TextField(
-          controller: ctrl,
-          autocorrect: false,
-          decoration: const InputDecoration(hintText: 'https://your-backend.run.app'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    if (result != null && result.isNotEmpty) {
-      await ParentApiClient.setBaseUrl(result);
-      if (mounted) setState(() => _serverUrl = result);
-    }
+  Future<void> _onServerSwitch(bool prod) async {
+    setState(() => _isProd = prod);
+    await ParentApiClient.setBaseUrl(prod ? ParentApiClient.defaultBaseUrl : ParentApiClient.devBaseUrl);
   }
 
   Future<void> _next() async {
@@ -130,24 +112,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 48),
-              GestureDetector(
-                onTap: _changeServer,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.dns_outlined, size: 12, color: AppColors.muted),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        _serverUrl.replaceFirst(RegExp(r'https?://'), ''),
-                        style: const TextStyle(fontSize: 11, color: AppColors.muted),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.edit_outlined, size: 11, color: AppColors.muted),
-                  ],
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.dns_outlined, size: 12, color: AppColors.muted),
+                  const SizedBox(width: 6),
+                  DropdownButton<bool>(
+                    value: _isProd,
+                    underline: const SizedBox(),
+                    isDense: true,
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                    items: const [
+                      DropdownMenuItem(value: true, child: Text('Production')),
+                      DropdownMenuItem(value: false, child: Text('Dev (Emulator)')),
+                    ],
+                    onChanged: (v) { if (v != null) _onServerSwitch(v); },
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Container(
@@ -249,9 +230,13 @@ class _CredentialsScreenState extends State<_CredentialsScreen> {
   Future<void> _login() async {
     setState(() { _loading = true; _error = null; });
     try {
+      final deviceName = Platform.isAndroid ? 'Android Device' : Platform.isIOS ? 'iOS Device' : 'Unknown';
+      final osVersion = Platform.operatingSystemVersion;
       final mustChange = await context.read<ParentAuthProvider>().login(
         _phoneCtrl.text.trim(),
         _passCtrl.text,
+        deviceName: deviceName,
+        osVersion: osVersion,
       );
       if (!mounted) return;
       if (mustChange) {
@@ -259,6 +244,8 @@ class _CredentialsScreenState extends State<_CredentialsScreen> {
           context,
           MaterialPageRoute(builder: (_) => const ForceChangePasswordScreen()),
         );
+      } else {
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } on ApiError catch (e) {
       setState(() => _error = e.message);

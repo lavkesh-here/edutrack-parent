@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/api.dart';
+import '../core/auth.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
 
@@ -13,6 +15,7 @@ class StudentProfileScreen extends StatefulWidget {
 
 class _State extends State<StudentProfileScreen> {
   Map<String, dynamic>? _profile;
+  Map<String, dynamic>? _parentProfile;
   bool _loading = true;
   String? _error;
 
@@ -24,8 +27,15 @@ class _State extends State<StudentProfileScreen> {
 
   Future<void> _load() async {
     try {
-      final data = await ParentApiClient.getChildProfile(widget.child.studentId);
-      if (mounted) setState(() { _profile = data; _loading = false; });
+      final results = await Future.wait([
+        ParentApiClient.getChildProfile(widget.child.studentId),
+        ParentApiClient.getProfile(),
+      ]);
+      if (mounted) setState(() {
+        _profile = results[0] as Map<String, dynamic>;
+        _parentProfile = results[1] as Map<String, dynamic>;
+        _loading = false;
+      });
     } on ApiError catch (e) {
       if (mounted) setState(() { _error = e.message; _loading = false; });
     } catch (_) {
@@ -44,16 +54,17 @@ class _State extends State<StudentProfileScreen> {
               ? Center(child: Text(_error!, style: const TextStyle(color: AppColors.coral)))
               : _profile == null
                   ? const SizedBox()
-                  : _Body(profile: _profile!, child: widget.child),
+                  : _Body(profile: _profile!, parentProfile: _parentProfile, child: widget.child),
     );
   }
 }
 
 class _Body extends StatelessWidget {
   final Map<String, dynamic> profile;
+  final Map<String, dynamic>? parentProfile;
   final ChildInfo child;
 
-  const _Body({required this.profile, required this.child});
+  const _Body({required this.profile, this.parentProfile, required this.child});
 
   String _v(String key, [String fallback = '—']) {
     final v = profile[key];
@@ -127,6 +138,16 @@ class _Body extends StatelessWidget {
             _InfoRow(label: 'Guardian Name', value: _v('guardian_name')),
             _InfoRow(label: 'Contact', value: _v('guardian_phone')),
           ]),
+          const SizedBox(height: 12),
+
+          // Parent details
+          if (parentProfile != null)
+            _Section(title: 'PARENT DETAILS', children: [
+              _InfoRow(label: 'Parent Name', value: parentProfile!['name']?.toString() ?? '—'),
+              _InfoRow(label: 'Phone', value: parentProfile!['phone']?.toString() ?? '—'),
+              _InfoRow(label: 'Email', value: parentProfile!['email']?.toString().isNotEmpty == true ? parentProfile!['email'].toString() : '—'),
+              _InfoRow(label: 'Relation', value: child.relationType),
+            ]),
           const SizedBox(height: 12),
 
         ],

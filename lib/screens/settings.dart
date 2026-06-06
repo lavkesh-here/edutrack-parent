@@ -4,6 +4,7 @@ import '../core/auth.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
+import 'devices.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,6 +24,15 @@ class _State extends State<SettingsScreen> {
   bool _obscureConfirm = true;
   String? _error;
   String? _success;
+  bool _isProd = true;
+
+  @override
+  void initState() {
+    super.initState();
+    ParentApiClient.getBaseUrl().then((url) {
+      if (mounted) setState(() => _isProd = !url.contains('10.0.2.2'));
+    });
+  }
 
   @override
   void dispose() {
@@ -151,62 +161,64 @@ class _State extends State<SettingsScreen> {
 
           const SizedBox(height: 12),
 
-          // Server URL
-          _serverUrlTile(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _serverUrlTile(BuildContext context) {
-    return FutureBuilder<String>(
-      future: ParentApiClient.getBaseUrl(),
-      builder: (_, snap) {
-        final url = snap.data ?? '';
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border, width: 1.5),
-          ),
-          child: ListTile(
-            leading: Container(
-              width: 38, height: 38,
-              decoration: BoxDecoration(color: AppColors.skyLight, borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.dns_outlined, color: AppColors.sky, size: 20),
+          // Server URL dropdown
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border, width: 1.5),
             ),
-            title: const Text('Server URL', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text)),
-            subtitle: Text(url.replaceFirst(RegExp(r'https?://'), ''), style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-            trailing: const Icon(Icons.edit_outlined, size: 18, color: AppColors.muted),
-            onTap: () => _editServerUrl(context),
+            child: ListTile(
+              leading: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(color: AppColors.skyLight, borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.dns_outlined, color: AppColors.sky, size: 20),
+              ),
+              title: const Text('Server', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text)),
+              subtitle: Text(_isProd ? 'Production' : 'Dev (Emulator)', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+              trailing: DropdownButton<bool>(
+                value: _isProd,
+                underline: const SizedBox(),
+                isDense: true,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.text),
+                items: const [
+                  DropdownMenuItem(value: true, child: Text('Production')),
+                  DropdownMenuItem(value: false, child: Text('Dev')),
+                ],
+                onChanged: (v) async {
+                  if (v == null) return;
+                  setState(() => _isProd = v);
+                  await ParentApiClient.setBaseUrl(v ? ParentApiClient.defaultBaseUrl : ParentApiClient.devBaseUrl);
+                  if (mounted) showSnack(context, 'Switched to ${v ? 'Production' : 'Dev'} server');
+                },
+              ),
+            ),
           ),
-        );
-      },
-    );
-  }
 
-  Future<void> _editServerUrl(BuildContext context) async {
-    final current = await ParentApiClient.getBaseUrl();
-    if (!mounted) return;
-    final ctrl = TextEditingController(text: current);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Server URL', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-        content: TextField(controller: ctrl, autocorrect: false, decoration: const InputDecoration(hintText: 'https://...')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Save')),
+          const SizedBox(height: 12),
+
+          // Devices
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border, width: 1.5),
+            ),
+            child: ListTile(
+              leading: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(color: AppColors.violetLight, borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.phone_android, color: AppColors.violet, size: 20),
+              ),
+              title: const Text('Logged-in Devices', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text)),
+              subtitle: const Text('View and manage active sessions', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+              trailing: const Icon(Icons.chevron_right, color: AppColors.muted),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DevicesScreen())),
+            ),
+          ),
         ],
       ),
     );
-    if (result != null && result.isNotEmpty) {
-      await ParentApiClient.setBaseUrl(result);
-      if (mounted) {
-        showSnack(context, 'Server URL updated');
-        setState(() {});
-      }
-    }
   }
 }
 

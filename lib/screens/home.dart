@@ -15,6 +15,10 @@ import 'student_profile.dart';
 import 'settings.dart';
 import 'about.dart';
 import 'faq.dart';
+import 'transport.dart';
+import 'fees.dart';
+import 'attender.dart';
+import 'teachers.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -312,6 +316,8 @@ class _HomeTab extends StatefulWidget {
 class _HomeTabState extends State<_HomeTab> {
   AttendanceSummary? _attendance;
   bool _loading = true;
+  List<ParentNotification> _recentNotifs = [];
+  int _unreadCount = 0;
 
   @override
   void initState() {
@@ -331,11 +337,89 @@ class _HomeTabState extends State<_HomeTab> {
     if (mounted) setState(() => _loading = true);
     try {
       final now = DateTime.now();
-      final att = await ParentApiClient.getAttendance(child.studentId, month: now.month, year: now.year);
-      if (mounted) setState(() { _attendance = att; _loading = false; });
+      final results = await Future.wait([
+        ParentApiClient.getAttendance(child.studentId, month: now.month, year: now.year),
+        ParentApiClient.getNotifications(child.studentId),
+      ]);
+      final att = results[0] as AttendanceSummary;
+      final notifs = results[1] as List<ParentNotification>;
+      if (mounted) setState(() {
+        _attendance = att;
+        _recentNotifs = notifs.take(5).toList();
+        _unreadCount = notifs.length;
+        _loading = false;
+      });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _showNotifSheet(BuildContext context) {
+    setState(() => _unreadCount = 0);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (_, ctrl) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2))),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Recent Notifications', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.text)),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _push(NotificationsScreen(child: widget.child!));
+                    },
+                    child: const Text('View All', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.teal)),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: _recentNotifs.isEmpty
+                  ? const Center(child: Text('No notifications', style: TextStyle(color: AppColors.muted)))
+                  : ListView.separated(
+                      controller: ctrl,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _recentNotifs.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        final n = _recentNotifs[i];
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(n.message, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text)),
+                              const SizedBox(height: 4),
+                              Text(n.teacherName ?? '', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _push(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
@@ -396,6 +480,26 @@ class _HomeTabState extends State<_HomeTab> {
                                 ],
                               ),
                             ),
+                            // Notification bell
+                            if (widget.child != null)
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.notifications_outlined, color: AppColors.text2),
+                                    onPressed: () => _showNotifSheet(context),
+                                  ),
+                                  if (_unreadCount > 0)
+                                    Positioned(
+                                      right: 6, top: 6,
+                                      child: Container(
+                                        width: 16, height: 16,
+                                        decoration: const BoxDecoration(color: AppColors.coral, shape: BoxShape.circle),
+                                        child: Center(child: Text('$_unreadCount', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white))),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             IconButton(
                               icon: const Icon(Icons.menu, color: AppColors.text2),
                               onPressed: widget.onMenuTap,
@@ -469,6 +573,20 @@ class _HomeTabState extends State<_HomeTab> {
                                     () => _push(SchoolContactsScreen(children: widget.children))),
                                 _Tile('🎓', 'Student Profile', AppColors.violet, AppColors.violetLight,
                                     () => _push(StudentProfileScreen(child: child))),
+                                _Tile('👩‍🏫', 'Teachers', AppColors.sky, AppColors.skyLight,
+                                    () => _push(TeachersScreen(child: child))),
+                              ]),
+                              const SizedBox(height: 16),
+                              _GridSection(title: 'PARENT CORNER', tiles: [
+                                _Tile('💰', 'Fees', AppColors.sun, AppColors.sunLight,
+                                    () => _push(FeesScreen(child: child))),
+                                _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight,
+                                    () => _push(AttenderScreen(child: child))),
+                              ]),
+                              const SizedBox(height: 16),
+                              _GridSection(title: 'OTHERS', tiles: [
+                                _Tile('🚌', 'Transport', AppColors.coral, AppColors.coralLight,
+                                    () => _push(TransportScreen(child: child))),
                               ]),
                               const SizedBox(height: 16),
                               _GridSection(title: 'ACCOUNT', tiles: [

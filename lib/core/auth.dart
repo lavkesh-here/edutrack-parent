@@ -44,8 +44,8 @@ class ParentAuthProvider extends ChangeNotifier {
   }
 
   /// Returns true if user must change password
-  Future<bool> login(String phone, String password) async {
-    final res = await ParentApiClient.login(phone, password);
+  Future<bool> login(String phone, String password, {String? deviceName, String? osVersion}) async {
+    final res = await ParentApiClient.login(phone, password, deviceName: deviceName, osVersion: osVersion);
     await ParentApiClient.setToken(res.token);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('parent_name', res.parentName);

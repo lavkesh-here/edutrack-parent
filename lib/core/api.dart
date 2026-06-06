@@ -219,6 +219,7 @@ class ParentNotification {
 
 class ParentApiClient {
   static const defaultBaseUrl = 'https://edutrack-api-6382035856.asia-south1.run.app';
+  static const devBaseUrl = 'http://10.0.2.2:8000';
   static const _prefKeyUrl = 'parent_server_url';
   static const _prefKeyToken = 'parent_auth_token';
 
@@ -301,10 +302,13 @@ class ParentApiClient {
     return SchoolInfo.fromJson(data as Map<String, dynamic>);
   }
 
-  static Future<ParentAuthResponse> login(String phone, String password) async {
+  static Future<ParentAuthResponse> login(String phone, String password, {String? deviceName, String? osVersion}) async {
     final data = await _post('/api/v1/auth/parent/login', {
       'phone': phone,
       'password': password,
+      if (deviceName != null) 'device_name': deviceName,
+      if (osVersion != null) 'os_version': osVersion,
+      'app_version': '1.0.0',
     }, handleUnauthorized: false);
     return ParentAuthResponse.fromJson(data as Map<String, dynamic>);
   }
@@ -376,6 +380,64 @@ class ParentApiClient {
   static Future<Map<String, dynamic>> getChildProfile(int studentId) async {
     final data = await _get('/api/v1/parent/child/$studentId/profile');
     return data as Map<String, dynamic>;
+  }
+}
+
+  static Future<Map<String, dynamic>> getTransport(int studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/transport');
+    return data as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getFees(int studentId, {String? academicYear}) async {
+    var path = '/api/v1/parent/child/$studentId/fees';
+    if (academicYear != null) path += '?academic_year=$academicYear';
+    final data = await _get(path);
+    return data as Map<String, dynamic>;
+  }
+
+  static Future<List<Map<String, dynamic>>> getAttenders(int studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/attenders');
+    return (data as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  static Future<void> addAttender(int studentId, {required String name, required String phone, required String relation}) async {
+    await _post('/api/v1/parent/child/$studentId/attenders', {'name': name, 'phone': phone, 'relation': relation});
+  }
+
+  static Future<void> deleteAttender(int studentId, int attenderId) async {
+    final base = await getBaseUrl();
+    final res = await http.delete(
+      Uri.parse('$base/api/v1/parent/child/$studentId/attenders/$attenderId'),
+      headers: await _headers(),
+    ).timeout(const Duration(seconds: 20));
+    if (res.statusCode == 401) {
+      await onUnauthorized?.call();
+      throw ApiError('Session expired. Please log in again.', 401);
+    }
+    if (res.statusCode >= 400) throw ApiError(_errorDetail(res), res.statusCode);
+  }
+
+  static Future<List<Map<String, dynamic>>> getTeachers(int studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/teachers');
+    return (data as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getDevices() async {
+    final data = await _get('/api/v1/parent/devices');
+    return (data as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  static Future<void> removeDevice(int sessionId) async {
+    final base = await getBaseUrl();
+    final res = await http.delete(
+      Uri.parse('$base/api/v1/parent/devices/$sessionId'),
+      headers: await _headers(),
+    ).timeout(const Duration(seconds: 20));
+    if (res.statusCode == 401) {
+      await onUnauthorized?.call();
+      throw ApiError('Session expired. Please log in again.', 401);
+    }
+    if (res.statusCode >= 400) throw ApiError(_errorDetail(res), res.statusCode);
   }
 }
 
