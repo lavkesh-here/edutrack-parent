@@ -37,8 +37,42 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _onServerSwitch(bool prod) async {
-    setState(() => _isProd = prod);
-    await ParentApiClient.setBaseUrl(prod ? ParentApiClient.defaultBaseUrl : ParentApiClient.devBaseUrl);
+    if (!prod) {
+      // Prompt for custom dev URL (ngrok, local IP, etc.)
+      final current = await ParentApiClient.getBaseUrl();
+      final isCurrentProd = current == ParentApiClient.defaultBaseUrl;
+      final ctrl = TextEditingController(text: isCurrentProd ? '' : current);
+      if (!mounted) return;
+      final result = await showDialog<String>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Dev Server URL', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Enter your local server URL.', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+              const SizedBox(height: 4),
+              const Text('e.g. http://192.168.1.5:8000 or https://xxxx.ngrok.io',
+                  style: TextStyle(color: AppColors.muted, fontSize: 11)),
+              const SizedBox(height: 12),
+              TextField(controller: ctrl, autocorrect: false, keyboardType: TextInputType.url,
+                  decoration: const InputDecoration(hintText: 'http://192.168.x.x:8000')),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Save')),
+          ],
+        ),
+      );
+      if (result == null || result.isEmpty) return;
+      setState(() => _isProd = false);
+      await ParentApiClient.setBaseUrl(result);
+    } else {
+      setState(() => _isProd = true);
+      await ParentApiClient.setBaseUrl(ParentApiClient.defaultBaseUrl);
+    }
   }
 
   Future<void> _next() async {

@@ -187,9 +187,41 @@ class _State extends State<SettingsScreen> {
                 ],
                 onChanged: (v) async {
                   if (v == null) return;
-                  setState(() => _isProd = v);
-                  await ParentApiClient.setBaseUrl(v ? ParentApiClient.defaultBaseUrl : ParentApiClient.devBaseUrl);
-                  if (mounted) showSnack(context, 'Switched to ${v ? 'Production' : 'Dev'} server');
+                  if (!v) {
+                    final current = await ParentApiClient.getBaseUrl();
+                    final isCurrentProd = current == ParentApiClient.defaultBaseUrl;
+                    final ctrl = TextEditingController(text: isCurrentProd ? '' : current);
+                    if (!mounted) return;
+                    final result = await showDialog<String>(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text('Dev Server URL', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('e.g. http://192.168.1.5:8000 or ngrok URL',
+                                style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                            const SizedBox(height: 12),
+                            TextField(controller: ctrl, autocorrect: false, keyboardType: TextInputType.url,
+                                decoration: const InputDecoration(hintText: 'http://192.168.x.x:8000')),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                          TextButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Save')),
+                        ],
+                      ),
+                    );
+                    if (result == null || result.isEmpty) return;
+                    setState(() => _isProd = false);
+                    await ParentApiClient.setBaseUrl(result);
+                    if (mounted) showSnack(context, 'Switched to Dev server');
+                  } else {
+                    setState(() => _isProd = true);
+                    await ParentApiClient.setBaseUrl(ParentApiClient.defaultBaseUrl);
+                    if (mounted) showSnack(context, 'Switched to Production');
+                  }
                 },
               ),
             ),
