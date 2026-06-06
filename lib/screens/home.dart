@@ -444,33 +444,34 @@ class _HomeTabState extends State<_HomeTab> {
                       // Header with drawer toggle
                       Container(
                         color: Colors.white,
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(4, 16, 12, 16),
                         child: Row(
                           children: [
-                            GestureDetector(
-                              onTap: widget.onMenuTap,
-                              child: Container(
-                                width: 44, height: 44,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    child?.studentName[0] ?? '?',
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
-                                  ),
+                            IconButton(
+                              icon: const Icon(Icons.menu, color: AppColors.text2),
+                              onPressed: widget.onMenuTap,
+                            ),
+                            Container(
+                              width: 36, height: 36,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  child?.studentName[0] ?? '?',
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     child?.studentName ?? 'No child linked',
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.text),
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.text),
                                   ),
                                   if (child != null)
                                     Text(
@@ -500,10 +501,6 @@ class _HomeTabState extends State<_HomeTab> {
                                     ),
                                 ],
                               ),
-                            IconButton(
-                              icon: const Icon(Icons.menu, color: AppColors.text2),
-                              onPressed: widget.onMenuTap,
-                            ),
                           ],
                         ),
                       ),
