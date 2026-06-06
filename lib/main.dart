@@ -26,7 +26,6 @@ class EduTrackParentApp extends StatelessWidget {
       theme: buildTheme(),
       debugShowCheckedModeBanner: false,
       routes: {
-        '/': (_) => const _Root(),
         '/force-change-password': (_) => const ForceChangePasswordScreen(),
       },
       home: const _Root(),

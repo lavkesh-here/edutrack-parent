@@ -262,8 +262,8 @@ class _CredentialsScreenState extends State<_CredentialsScreen> {
       }
     } on ApiError catch (e) {
       setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = 'Could not connect to server.');
+    } catch (e) {
+      setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }

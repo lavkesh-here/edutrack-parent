@@ -256,6 +256,15 @@ class ParentApiClient {
     };
   }
 
+  static String _errorDetail(http.Response res) {
+    try {
+      final b = jsonDecode(res.body);
+      return b['detail']?.toString() ?? 'Server error (${res.statusCode})';
+    } catch (_) {
+      return 'Server error (${res.statusCode})';
+    }
+  }
+
   static Future<dynamic> _get(String path) async {
     final base = await getBaseUrl();
     final res = await http.get(
@@ -266,10 +275,7 @@ class ParentApiClient {
       await onUnauthorized?.call();
       throw ApiError('Session expired. Please log in again.', 401);
     }
-    if (res.statusCode >= 400) {
-      final body = jsonDecode(res.body);
-      throw ApiError(body['detail']?.toString() ?? 'Server error', res.statusCode);
-    }
+    if (res.statusCode >= 400) throw ApiError(_errorDetail(res), res.statusCode);
     return jsonDecode(utf8.decode(res.bodyBytes));
   }
 
@@ -284,10 +290,7 @@ class ParentApiClient {
       if (handleUnauthorized) await onUnauthorized?.call();
       throw ApiError(handleUnauthorized ? 'Session expired. Please log in again.' : 'Invalid credentials', 401);
     }
-    if (res.statusCode >= 400) {
-      final b = jsonDecode(res.body);
-      throw ApiError(b['detail']?.toString() ?? 'Server error', res.statusCode);
-    }
+    if (res.statusCode >= 400) throw ApiError(_errorDetail(res), res.statusCode);
     return jsonDecode(utf8.decode(res.bodyBytes));
   }
 
