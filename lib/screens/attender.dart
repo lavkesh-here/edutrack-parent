@@ -1,4 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
@@ -15,6 +18,8 @@ class _State extends State<AttenderScreen> {
   List<Map<String, dynamic>> _attenders = [];
   bool _loading = true;
   String? _error;
+
+  static const _maxAttenders = 3;
 
   @override
   void initState() {
@@ -46,6 +51,11 @@ class _State extends State<AttenderScreen> {
   }
 
   void _showAddDialog() {
+    if (_attenders.length >= _maxAttenders) {
+      showSnack(context, 'Maximum $_maxAttenders attenders allowed per student', error: true);
+      return;
+    }
+
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final relCtrl = TextEditingController(text: 'Parent');
@@ -116,37 +126,122 @@ class _State extends State<AttenderScreen> {
     );
   }
 
+  Future<void> _uploadPhoto(int attenderId) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, imageQuality: 80);
+    if (picked == null) return;
+
+    try {
+      final bytes = await picked.readAsBytes();
+      final ext = picked.name.split('.').last.toLowerCase();
+      final contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
+
+      final urlData = await ParentApiClient.getAttenderUploadUrl(widget.child.studentId);
+      final uploadUrl = urlData['upload_url'] as String;
+      final photoUrl = urlData['photo_url'] as String;
+
+      final uploadRes = await http.put(
+        Uri.parse(uploadUrl),
+        headers: {'Content-Type': contentType},
+        body: bytes,
+      );
+      if (uploadRes.statusCode >= 300) throw Exception('Upload failed');
+
+      await ParentApiClient.updateAttenderPhoto(widget.child.studentId, attenderId, photoUrl);
+      if (mounted) {
+        showSnack(context, 'Photo updated');
+        _load();
+      }
+    } catch (e) {
+      if (mounted) showSnack(context, 'Could not upload photo', error: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final count = _attenders.length;
+    final atMax = count >= _maxAttenders;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(title: const Text('Attenders'), leading: const BackButton()),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddDialog,
-        backgroundColor: AppColors.teal,
-        child: const Icon(Icons.add, color: Colors.white),
+        onPressed: atMax ? null : _showAddDialog,
+        backgroundColor: atMax ? AppColors.border : AppColors.teal,
+        tooltip: atMax ? 'Maximum 3 attenders reached' : 'Add Attender',
+        child: Icon(Icons.add, color: atMax ? AppColors.muted : Colors.white),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.teal))
           : _error != null
               ? Center(child: Text(_error!, style: const TextStyle(color: AppColors.coral)))
-              : _attenders.isEmpty
-                  ? _Empty()
-                  : RefreshIndicator(
-                      color: AppColors.teal,
-                      onRefresh: _load,
-                      child: ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          const SectionHeader('AUTHORIZED PICKUP PERSONS'),
-                          const SizedBox(height: 4),
-                          ..._attenders.map((a) => _AttenderTile(
-                            attender: a,
-                            onDelete: () => _confirmDelete(context, a),
-                          )),
-                        ],
+              : RefreshIndicator(
+                  color: AppColors.teal,
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // Count indicator
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: atMax ? AppColors.coralLight : AppColors.tealLight,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              atMax ? Icons.warning_amber_outlined : Icons.people_outline,
+                              color: atMax ? AppColors.coral : AppColors.teal,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$count / $_maxAttenders Attenders',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: atMax ? AppColors.coral : AppColors.teal,
+                              ),
+                            ),
+                            if (atMax) ...[
+                              const SizedBox(width: 6),
+                              Text('(limit reached)',
+                                  style: const TextStyle(fontSize: 11, color: AppColors.coral)),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      if (_attenders.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('👤', style: TextStyle(fontSize: 56)),
+                                SizedBox(height: 16),
+                                Text('No Attenders Yet', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.text)),
+                                SizedBox(height: 8),
+                                Text('Tap + to add authorized persons who can pick up your child from school.',
+                                    textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+                              ],
+                            ),
+                          ),
+                        )
+                      else ...[
+                        const SectionHeader('AUTHORIZED PICKUP PERSONS'),
+                        const SizedBox(height: 4),
+                        ..._attenders.map((a) => _AttenderTile(
+                          attender: a,
+                          onDelete: () => _confirmDelete(context, a),
+                          onPhotoTap: () => _uploadPhoto(a['id'] as int),
+                        )),
+                      ],
+                    ],
+                  ),
+                ),
     );
   }
 
@@ -170,80 +265,67 @@ class _State extends State<AttenderScreen> {
   }
 }
 
-class _Empty extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('👤', style: TextStyle(fontSize: 56)),
-              SizedBox(height: 16),
-              Text('No Attenders Yet', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.text)),
-              SizedBox(height: 8),
-              Text('Tap + to add authorized persons who can pick up your child from school.',
-                  textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
-            ],
-          ),
-        ),
-      );
-}
-
 class _AttenderTile extends StatelessWidget {
   final Map<String, dynamic> attender;
   final VoidCallback onDelete;
-  const _AttenderTile({required this.attender, required this.onDelete});
+  final VoidCallback onPhotoTap;
+  const _AttenderTile({required this.attender, required this.onDelete, required this.onPhotoTap});
 
   @override
   Widget build(BuildContext context) {
     final name = attender['name']?.toString() ?? '';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    return Dismissible(
-      key: ValueKey(attender['id']),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(color: AppColors.coral.withOpacity(0.12), borderRadius: BorderRadius.circular(14)),
-        child: const Icon(Icons.delete_outline, color: AppColors.coral),
+    final photoUrl = attender['photo_url'] as String?;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border, width: 1.5),
       ),
-      confirmDismiss: (_) async {
-        onDelete();
-        return false; // parent handles removal after API call
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border, width: 1.5),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(color: AppColors.tealLight, shape: BoxShape.circle),
-              child: Center(child: Text(initial, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.teal))),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: onPhotoTap,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppColors.tealLight,
+                  backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                  child: photoUrl == null
+                      ? Text(initial, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.teal))
+                      : null,
+                ),
+                Positioned(
+                  right: 0, bottom: 0,
+                  child: Container(
+                    width: 18, height: 18,
+                    decoration: BoxDecoration(color: AppColors.teal, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)),
+                    child: const Icon(Icons.camera_alt, size: 10, color: Colors.white),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.text)),
-                  Text('${attender['relation'] ?? ''} · ${attender['phone'] ?? ''}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                ],
-              ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.text)),
+                Text('${attender['relation'] ?? ''} · ${attender['phone'] ?? ''}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+              ],
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: AppColors.coral, size: 20),
-              onPressed: onDelete,
-            ),
-          ],
-        ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: AppColors.coral, size: 20),
+            onPressed: onDelete,
+          ),
+        ],
       ),
     );
   }

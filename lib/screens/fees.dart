@@ -1,5 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
@@ -201,7 +204,7 @@ class _BodyState extends State<_Body> {
               // Receipts
               if (payments.isNotEmpty) ...[
                 const SectionHeader('PAYMENT RECEIPTS'),
-                ...payments.map((p) => _ReceiptTile(payment: p)),
+                ...payments.map((p) => _ReceiptTile(payment: p, child: widget.child)),
                 const SizedBox(height: 16),
               ],
             ],
@@ -318,14 +321,21 @@ class _DonutPainter extends CustomPainter {
   bool shouldRepaint(_DonutPainter old) => old.paid != paid || old.total != total;
 }
 
-class _InstallmentTile extends StatelessWidget {
+class _InstallmentTile extends StatefulWidget {
   final Map<String, dynamic> item;
   final bool selected;
   final VoidCallback? onToggle;
   const _InstallmentTile({required this.item, required this.selected, this.onToggle});
 
+  @override
+  State<_InstallmentTile> createState() => _InstallmentTileState();
+}
+
+class _InstallmentTileState extends State<_InstallmentTile> {
+  bool _showBreakdown = false;
+
   Color get _statusColor {
-    switch (item['status']) {
+    switch (widget.item['status']) {
       case 'paid': return AppColors.teal;
       case 'overdue': return AppColors.coral;
       default: return AppColors.amber;
@@ -334,47 +344,116 @@ class _InstallmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     final amount = (item['amount'] as num? ?? 0).toDouble();
     final isPaid = item['status'] == 'paid';
+    final lineItems = (item['line_items'] as List<dynamic>? ?? [])
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: selected ? AppColors.teal : AppColors.border, width: selected ? 2 : 1.5),
+        border: Border.all(color: widget.selected ? AppColors.teal : AppColors.border, width: widget.selected ? 2 : 1.5),
       ),
-      child: ListTile(
-        leading: onToggle != null
-            ? Checkbox(
-                value: selected,
-                onChanged: (_) => onToggle?.call(),
-                activeColor: AppColors.teal,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-              )
-            : Container(
-                width: 32, height: 32,
-                decoration: BoxDecoration(color: _statusColor.withOpacity(0.1), shape: BoxShape.circle),
-                child: Icon(isPaid ? Icons.check : Icons.schedule, color: _statusColor, size: 16),
-              ),
-        title: Text(item['title']?.toString() ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.text)),
-        subtitle: Text(
-          item['due_date'] != null ? 'Due: ${item['due_date']}' : '',
-          style: const TextStyle(fontSize: 11, color: AppColors.muted),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(_fmtAmount(amount), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.text)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: _statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-              child: Text(item['status']?.toString() ?? '', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _statusColor)),
+      child: Column(
+        children: [
+          ListTile(
+            leading: widget.onToggle != null
+                ? Checkbox(
+                    value: widget.selected,
+                    onChanged: (_) => widget.onToggle?.call(),
+                    activeColor: AppColors.teal,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  )
+                : Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(color: _statusColor.withOpacity(0.1), shape: BoxShape.circle),
+                    child: Icon(isPaid ? Icons.check : Icons.schedule, color: _statusColor, size: 16),
+                  ),
+            title: Text(item['title']?.toString() ?? '',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.text)),
+            subtitle: item['due_date'] != null
+                ? Text('Due: ${item['due_date']}', style: const TextStyle(fontSize: 11, color: AppColors.muted))
+                : null,
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(_fmtAmount(amount), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.text)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: _statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                  child: Text(item['status']?.toString() ?? '',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: _statusColor)),
+                ),
+              ],
             ),
+            onTap: widget.onToggle,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          ),
+          if (lineItems.isNotEmpty) ...[
+            Divider(height: 1, color: AppColors.border),
+            InkWell(
+              onTap: () => setState(() => _showBreakdown = !_showBreakdown),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      _showBreakdown ? 'Hide Breakdown' : 'View Breakdown',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.teal),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(_showBreakdown ? Icons.expand_less : Icons.expand_more,
+                        size: 16, color: AppColors.teal),
+                  ],
+                ),
+              ),
+            ),
+            if (_showBreakdown)
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                child: Column(
+                  children: lineItems.map((li) {
+                    final liAmount = (li['amount'] as num? ?? 0).toDouble();
+                    final isWaived = li['is_waived'] as bool? ?? false;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              li['component_name']?.toString() ?? '',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isWaived ? AppColors.muted : AppColors.text2,
+                                decoration: isWaived ? TextDecoration.lineThrough : null,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            isWaived ? 'Waived' : _fmtAmount(liAmount),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isWaived ? AppColors.muted : AppColors.text,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
           ],
-        ),
-        onTap: onToggle,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        ],
       ),
     );
   }
@@ -382,7 +461,99 @@ class _InstallmentTile extends StatelessWidget {
 
 class _ReceiptTile extends StatelessWidget {
   final Map<String, dynamic> payment;
-  const _ReceiptTile({required this.payment});
+  final ChildInfo child;
+  const _ReceiptTile({required this.payment, required this.child});
+
+  Future<void> _downloadPdf(BuildContext context) async {
+    final doc = pw.Document();
+    final amount = (payment['amount'] as num? ?? 0).toDouble();
+    final lineItems = (payment['line_items'] as List<dynamic>? ?? [])
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
+
+    doc.addPage(pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      build: (pw.Context ctx) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Container(
+            padding: const pw.EdgeInsets.all(16),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.teal,
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('PAYMENT RECEIPT',
+                    style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                pw.SizedBox(height: 4),
+                pw.Text(child.schoolName,
+                    style: const pw.TextStyle(fontSize: 13, color: PdfColors.white)),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 20),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('Student: ${child.studentName}',
+                  style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+              pw.Text('Receipt: ${payment['receipt_number'] ?? ''}',
+                  style: const pw.TextStyle(fontSize: 12)),
+            ],
+          ),
+          pw.SizedBox(height: 6),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('Date: ${payment['payment_date'] ?? ''}',
+                  style: const pw.TextStyle(fontSize: 12)),
+              pw.Text('Method: ${payment['payment_method'] ?? ''}',
+                  style: const pw.TextStyle(fontSize: 12)),
+            ],
+          ),
+          pw.SizedBox(height: 20),
+          pw.Divider(),
+          if (lineItems.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            pw.Text('Fee Breakdown', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 8),
+            ...lineItems.map((li) => pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 3),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(li['component_name']?.toString() ?? '', style: const pw.TextStyle(fontSize: 12)),
+                  pw.Text('₹${(li['amount'] as num? ?? 0).toStringAsFixed(0)}',
+                      style: const pw.TextStyle(fontSize: 12)),
+                ],
+              ),
+            )),
+            pw.Divider(),
+          ],
+          pw.SizedBox(height: 8),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('TOTAL PAID',
+                  style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              pw.Text('₹${amount.toStringAsFixed(0)}',
+                  style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.teal)),
+            ],
+          ),
+          pw.SizedBox(height: 24),
+          pw.Text('This is a computer-generated receipt.',
+              style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
+        ],
+      ),
+    ));
+
+    await Printing.sharePdf(
+      bytes: await doc.save(),
+      filename: 'receipt_${payment['receipt_number'] ?? 'fee'}.pdf',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -415,6 +586,14 @@ class _ReceiptTile extends StatelessWidget {
             ),
           ),
           Text(_fmtAmount(amount), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.teal)),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.download_outlined, color: AppColors.teal, size: 20),
+            tooltip: 'Download PDF',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: () => _downloadPdf(context),
+          ),
         ],
       ),
     );

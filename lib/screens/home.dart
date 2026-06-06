@@ -318,6 +318,14 @@ class _HomeTabState extends State<_HomeTab> {
   bool _loading = true;
   List<ParentNotification> _recentNotifs = [];
   int _unreadCount = 0;
+  String _search = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -424,6 +432,30 @@ class _HomeTabState extends State<_HomeTab> {
 
   void _push(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
 
+  List<_Tile> get _allTiles {
+    final child = widget.child;
+    if (child == null) return [];
+    return [
+      _Tile('📋', 'Attendance', AppColors.teal, AppColors.tealLight, () => widget.onSwitchTab(1), 'ACADEMICS'),
+      _Tile('📊', 'Results', AppColors.violet, AppColors.violetLight, () => widget.onSwitchTab(2), 'ACADEMICS'),
+      _Tile('📚', 'Work Log', AppColors.sun, AppColors.sunLight, () => widget.onSwitchTab(3), 'ACADEMICS'),
+      _Tile('🔔', 'Notifications', AppColors.sky, AppColors.skyLight, () => _push(NotificationsScreen(child: child)), 'COMMUNICATION'),
+      _Tile('🏫', 'School Contacts', AppColors.teal, AppColors.tealLight, () => _push(SchoolContactsScreen(children: widget.children)), 'SCHOOL INFO'),
+      _Tile('🎓', 'Student Profile', AppColors.violet, AppColors.violetLight, () => _push(StudentProfileScreen(child: child)), 'SCHOOL INFO'),
+      _Tile('👩‍🏫', 'Teachers', AppColors.sky, AppColors.skyLight, () => _push(TeachersScreen(child: child)), 'SCHOOL INFO'),
+      _Tile('💰', 'Fees', AppColors.sun, AppColors.sunLight, () => _push(FeesScreen(child: child)), 'PARENT CORNER'),
+      _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight, () => _push(AttenderScreen(child: child)), 'PARENT CORNER'),
+      _Tile('🚌', 'Transport', AppColors.coral, AppColors.coralLight, () => _push(TransportScreen(child: child)), 'OTHERS'),
+      _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen()), 'ACCOUNT'),
+    ];
+  }
+
+  List<_Tile> get _searchResults {
+    final q = _search.toLowerCase();
+    return _allTiles.where((t) =>
+        t.label.toLowerCase().contains(q) || t.section.toLowerCase().contains(q)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final child = widget.child;
@@ -431,173 +463,225 @@ class _HomeTabState extends State<_HomeTab> {
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.teal))
-            : RefreshIndicator(
-                color: AppColors.teal,
-                onRefresh: _load,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Header with drawer toggle
-                      Container(
-                        color: Colors.white,
-                        padding: const EdgeInsets.fromLTRB(4, 16, 12, 16),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.menu, color: AppColors.text2),
-                              onPressed: widget.onMenuTap,
+        child: Column(
+          children: [
+            // Static header
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(4, 16, 12, 16),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.menu, color: AppColors.text2),
+                    onPressed: widget.onMenuTap,
+                  ),
+                  Container(
+                    width: 36, height: 36,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        child?.studentName[0] ?? '?',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          child?.studentName ?? 'No child linked',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.text),
+                        ),
+                        if (child != null)
+                          Text(
+                            '${child.classLabel ?? ''} · ${child.schoolName}',
+                            style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (widget.child != null)
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications_outlined, color: AppColors.text2),
+                          onPressed: () => _showNotifSheet(context),
+                        ),
+                        if (_unreadCount > 0)
+                          Positioned(
+                            right: 6, top: 6,
+                            child: Container(
+                              width: 16, height: 16,
+                              decoration: const BoxDecoration(color: AppColors.coral, shape: BoxShape.circle),
+                              child: Center(child: Text('$_unreadCount', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white))),
                             ),
-                            Container(
-                              width: 36, height: 36,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  child?.studentName[0] ?? '?',
-                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+                          ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.teal))
+                  : RefreshIndicator(
+                      color: AppColors.teal,
+                      onRefresh: _load,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (child == null) ...[
+                              const Padding(
+                                padding: EdgeInsets.all(32),
+                                child: Center(
+                                  child: Column(
+                                    children: [
+                                      Text('👶', style: TextStyle(fontSize: 48)),
+                                      SizedBox(height: 12),
+                                      Text('No children linked yet',
+                                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.text)),
+                                      SizedBox(height: 8),
+                                      Text('Go to Profile → Add Child to link your child\'s account.',
+                                          textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    child?.studentName ?? 'No child linked',
-                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.text),
+                            ] else ...[
+                              const SizedBox(height: 12),
+
+                              // Search bar
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: TextField(
+                                  controller: _searchCtrl,
+                                  onChanged: (v) => setState(() => _search = v),
+                                  decoration: InputDecoration(
+                                    hintText: 'Search features...',
+                                    hintStyle: const TextStyle(fontSize: 13, color: AppColors.muted),
+                                    prefixIcon: const Icon(Icons.search, color: AppColors.muted, size: 20),
+                                    suffixIcon: _search.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(Icons.close, size: 18, color: AppColors.muted),
+                                            onPressed: () { _searchCtrl.clear(); setState(() => _search = ''); },
+                                          )
+                                        : null,
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
                                   ),
-                                  if (child != null)
-                                    Text(
-                                      '${child.classLabel ?? ''} · ${child.schoolName}',
-                                      style: const TextStyle(fontSize: 11, color: AppColors.muted),
-                                    ),
-                                ],
+                                ),
                               ),
-                            ),
-                            // Notification bell
-                            if (widget.child != null)
-                              Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.notifications_outlined, color: AppColors.text2),
-                                    onPressed: () => _showNotifSheet(context),
+                              const SizedBox(height: 12),
+
+                              if (_search.isNotEmpty) ...[
+                                // Search results list
+                                if (_searchResults.isEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.all(24),
+                                    child: Center(child: Text('No features found', style: TextStyle(color: AppColors.muted))),
+                                  )
+                                else
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const SectionHeader('SEARCH RESULTS'),
+                                        GridView.count(
+                                          crossAxisCount: 3,
+                                          shrinkWrap: true,
+                                          physics: const NeverScrollableScrollPhysics(),
+                                          crossAxisSpacing: 10,
+                                          mainAxisSpacing: 10,
+                                          childAspectRatio: 1.0,
+                                          children: _searchResults.map((t) => _GridTile(tile: t)).toList(),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  if (_unreadCount > 0)
-                                    Positioned(
-                                      right: 6, top: 6,
-                                      child: Container(
-                                        width: 16, height: 16,
-                                        decoration: const BoxDecoration(color: AppColors.coral, shape: BoxShape.circle),
-                                        child: Center(child: Text('$_unreadCount', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white))),
-                                      ),
+                              ] else ...[
+                                // Attendance quick stats
+                                if (_attendance != null)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const SectionHeader('ATTENDANCE THIS MONTH'),
+                                        Row(
+                                          children: [
+                                            Expanded(child: InfoCard(label: 'Present', value: '${_attendance!.present}', color: AppColors.teal, icon: '✅')),
+                                            const SizedBox(width: 8),
+                                            Expanded(child: InfoCard(label: 'Absent', value: '${_attendance!.absent}', color: AppColors.coral, icon: '❌')),
+                                            const SizedBox(width: 8),
+                                            Expanded(child: InfoCard(label: 'Late', value: '${_attendance!.late}', color: AppColors.amber, icon: '⏰')),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                ],
-                              ),
+                                  ),
+
+                                const SizedBox(height: 20),
+
+                                // Feature grid — collapsible sections
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _GridSection(title: 'ACADEMICS', defaultExpanded: true, tiles: [
+                                        _Tile('📋', 'Attendance', AppColors.teal, AppColors.tealLight, () => widget.onSwitchTab(1), 'ACADEMICS'),
+                                        _Tile('📊', 'Results', AppColors.violet, AppColors.violetLight, () => widget.onSwitchTab(2), 'ACADEMICS'),
+                                        _Tile('📚', 'Work Log', AppColors.sun, AppColors.sunLight, () => widget.onSwitchTab(3), 'ACADEMICS'),
+                                      ]),
+                                      const SizedBox(height: 8),
+                                      _GridSection(title: 'COMMUNICATION', tiles: [
+                                        _Tile('🔔', 'Notifications', AppColors.sky, AppColors.skyLight, () => _push(NotificationsScreen(child: child)), 'COMMUNICATION'),
+                                      ]),
+                                      const SizedBox(height: 8),
+                                      _GridSection(title: 'SCHOOL INFO', tiles: [
+                                        _Tile('🏫', 'School Contacts', AppColors.teal, AppColors.tealLight, () => _push(SchoolContactsScreen(children: widget.children)), 'SCHOOL INFO'),
+                                        _Tile('🎓', 'Student Profile', AppColors.violet, AppColors.violetLight, () => _push(StudentProfileScreen(child: child)), 'SCHOOL INFO'),
+                                        _Tile('👩‍🏫', 'Teachers', AppColors.sky, AppColors.skyLight, () => _push(TeachersScreen(child: child)), 'SCHOOL INFO'),
+                                      ]),
+                                      const SizedBox(height: 8),
+                                      _GridSection(title: 'PARENT CORNER', tiles: [
+                                        _Tile('💰', 'Fees', AppColors.sun, AppColors.sunLight, () => _push(FeesScreen(child: child)), 'PARENT CORNER'),
+                                        _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight, () => _push(AttenderScreen(child: child)), 'PARENT CORNER'),
+                                      ]),
+                                      const SizedBox(height: 8),
+                                      _GridSection(title: 'OTHERS', tiles: [
+                                        _Tile('🚌', 'Transport', AppColors.coral, AppColors.coralLight, () => _push(TransportScreen(child: child)), 'OTHERS'),
+                                      ]),
+                                      const SizedBox(height: 8),
+                                      _GridSection(title: 'ACCOUNT', tiles: [
+                                        _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen()), 'ACCOUNT'),
+                                      ]),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 24),
+                            ],
                           ],
                         ),
                       ),
-
-                      if (child == null) ...[
-                        const Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(
-                            child: Column(
-                              children: [
-                                Text('👶', style: TextStyle(fontSize: 48)),
-                                SizedBox(height: 12),
-                                Text('No children linked yet',
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.text)),
-                                SizedBox(height: 8),
-                                Text('Go to Profile → Add Child to link your child\'s account.',
-                                    textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ] else ...[
-                        const SizedBox(height: 16),
-
-                        // Attendance quick stats
-                        if (_attendance != null)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SectionHeader('ATTENDANCE THIS MONTH'),
-                                Row(
-                                  children: [
-                                    Expanded(child: InfoCard(label: 'Present', value: '${_attendance!.present}', color: AppColors.teal, icon: '✅')),
-                                    const SizedBox(width: 8),
-                                    Expanded(child: InfoCard(label: 'Absent', value: '${_attendance!.absent}', color: AppColors.coral, icon: '❌')),
-                                    const SizedBox(width: 8),
-                                    Expanded(child: InfoCard(label: 'Late', value: '${_attendance!.late}', color: AppColors.amber, icon: '⏰')),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-
-                        const SizedBox(height: 20),
-
-                        // Feature grid
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _GridSection(title: 'ACADEMICS', tiles: [
-                                _Tile('📋', 'Attendance', AppColors.teal, AppColors.tealLight, () => widget.onSwitchTab(1)),
-                                _Tile('📊', 'Results', AppColors.violet, AppColors.violetLight, () => widget.onSwitchTab(2)),
-                                _Tile('📚', 'Work Log', AppColors.sun, AppColors.sunLight, () => widget.onSwitchTab(3)),
-                              ]),
-                              const SizedBox(height: 16),
-                              _GridSection(title: 'COMMUNICATION', tiles: [
-                                _Tile('🔔', 'Notifications', AppColors.sky, AppColors.skyLight,
-                                    () => _push(NotificationsScreen(child: child))),
-                              ]),
-                              const SizedBox(height: 16),
-                              _GridSection(title: 'SCHOOL INFO', tiles: [
-                                _Tile('🏫', 'School Contacts', AppColors.teal, AppColors.tealLight,
-                                    () => _push(SchoolContactsScreen(children: widget.children))),
-                                _Tile('🎓', 'Student Profile', AppColors.violet, AppColors.violetLight,
-                                    () => _push(StudentProfileScreen(child: child))),
-                                _Tile('👩‍🏫', 'Teachers', AppColors.sky, AppColors.skyLight,
-                                    () => _push(TeachersScreen(child: child))),
-                              ]),
-                              const SizedBox(height: 16),
-                              _GridSection(title: 'PARENT CORNER', tiles: [
-                                _Tile('💰', 'Fees', AppColors.sun, AppColors.sunLight,
-                                    () => _push(FeesScreen(child: child))),
-                                _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight,
-                                    () => _push(AttenderScreen(child: child))),
-                              ]),
-                              const SizedBox(height: 16),
-                              _GridSection(title: 'OTHERS', tiles: [
-                                _Tile('🚌', 'Transport', AppColors.coral, AppColors.coralLight,
-                                    () => _push(TransportScreen(child: child))),
-                              ]),
-                              const SizedBox(height: 16),
-                              _GridSection(title: 'ACCOUNT', tiles: [
-                                _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen())),
-                              ]),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -611,27 +695,63 @@ class _Tile {
   final Color color;
   final Color bg;
   final VoidCallback onTap;
-  const _Tile(this.emoji, this.label, this.color, this.bg, this.onTap);
+  final String section;
+  const _Tile(this.emoji, this.label, this.color, this.bg, this.onTap, [this.section = '']);
 }
 
-class _GridSection extends StatelessWidget {
+class _GridSection extends StatefulWidget {
   final String title;
   final List<_Tile> tiles;
-  const _GridSection({required this.title, required this.tiles});
+  final bool defaultExpanded;
+  const _GridSection({required this.title, required this.tiles, this.defaultExpanded = false});
+
+  @override
+  State<_GridSection> createState() => _GridSectionState();
+}
+
+class _GridSectionState extends State<_GridSection> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.defaultExpanded;
+  }
 
   @override
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(title),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.0,
-            children: tiles.map((t) => _GridTile(tile: t)).toList(),
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(child: SectionHeader(widget.title)),
+                  Icon(
+                    _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: AppColors.muted,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            child: _expanded
+                ? GridView.count(
+                    crossAxisCount: 3,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 1.0,
+                    children: widget.tiles.map((t) => _GridTile(tile: t)).toList(),
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       );

@@ -167,6 +167,9 @@ class WorkLogItem {
   final String? sectionLabel;
   final String? subjectName;
   final String? teacherName;
+  final int? submissionId;
+  final String ackStatus; // pending | seen | completed | incomplete
+  final String? parentNote;
 
   const WorkLogItem({
     required this.id,
@@ -177,6 +180,9 @@ class WorkLogItem {
     this.sectionLabel,
     this.subjectName,
     this.teacherName,
+    this.submissionId,
+    this.ackStatus = 'pending',
+    this.parentNote,
   });
 
   factory WorkLogItem.fromJson(Map<String, dynamic> j) => WorkLogItem(
@@ -188,7 +194,16 @@ class WorkLogItem {
         sectionLabel: j['section_label'] as String?,
         subjectName: j['subject_name'] as String?,
         teacherName: j['teacher_name'] as String?,
+        submissionId: j['submission_id'] as int?,
+        ackStatus: j['ack_status'] as String? ?? 'pending',
+        parentNote: j['parent_note'] as String?,
       );
+}
+
+class WorkLogDate {
+  final String date;
+  final List<WorkLogItem> logs;
+  const WorkLogDate({required this.date, required this.logs});
 }
 
 class ParentNotification {
@@ -280,6 +295,21 @@ class ParentApiClient {
     return jsonDecode(utf8.decode(res.bodyBytes));
   }
 
+  static Future<dynamic> _patch(String path, Map<String, dynamic> body) async {
+    final base = await getBaseUrl();
+    final res = await http.patch(
+      Uri.parse('$base$path'),
+      headers: await _headers(),
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 20));
+    if (res.statusCode == 401) {
+      await onUnauthorized?.call();
+      throw ApiError('Session expired. Please log in again.', 401);
+    }
+    if (res.statusCode >= 400) throw ApiError(_errorDetail(res), res.statusCode);
+    return jsonDecode(utf8.decode(res.bodyBytes));
+  }
+
   static Future<dynamic> _post(String path, Map<String, dynamic> body, {bool handleUnauthorized = true}) async {
     final base = await getBaseUrl();
     final res = await http.post(
@@ -360,10 +390,25 @@ class ParentApiClient {
     return list.map((e) => TestResult.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  static Future<List<WorkLogItem>> getWorkLogs(int studentId) async {
-    final data = await _get('/api/v1/parent/child/$studentId/work-logs');
-    final list = data as List<dynamic>;
-    return list.map((e) => WorkLogItem.fromJson(e as Map<String, dynamic>)).toList();
+  static Future<List<WorkLogDate>> getWorkLogs(int studentId, {int days = 30}) async {
+    final data = await _get('/api/v1/parent/child/$studentId/work-logs?days=$days');
+    final map = data as Map<String, dynamic>;
+    final dates = (map['dates'] as List<dynamic>? ?? []);
+    return dates.map((d) {
+      final dm = d as Map<String, dynamic>;
+      final logs = (dm['logs'] as List<dynamic>? ?? [])
+          .map((l) => WorkLogItem.fromJson(l as Map<String, dynamic>))
+          .toList();
+      return WorkLogDate(date: dm['date'] as String, logs: logs);
+    }).toList();
+  }
+
+  static Future<void> acknowledgeWorkLog(int studentId, int logId,
+      {required String status, String? note}) async {
+    await _post('/api/v1/parent/child/$studentId/work-logs/$logId/acknowledge', {
+      'status': status,
+      if (note != null && note.isNotEmpty) 'note': note,
+    });
   }
 
   static Future<List<ParentNotification>> getNotifications(int studentId) async {
@@ -401,6 +446,15 @@ class ParentApiClient {
 
   static Future<void> addAttender(int studentId, {required String name, required String phone, required String relation}) async {
     await _post('/api/v1/parent/child/$studentId/attenders', {'name': name, 'phone': phone, 'relation': relation});
+  }
+
+  static Future<Map<String, dynamic>> getAttenderUploadUrl(int studentId) async {
+    final data = await _post('/api/v1/parent/child/$studentId/attenders/upload-url', {});
+    return data as Map<String, dynamic>;
+  }
+
+  static Future<void> updateAttenderPhoto(int studentId, int attenderId, String photoUrl) async {
+    await _patch('/api/v1/parent/child/$studentId/attenders/$attenderId/photo', {'photo_url': photoUrl});
   }
 
   static Future<void> deleteAttender(int studentId, int attenderId) async {
