@@ -60,6 +60,9 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Analyze (dart type-check)
+        run: flutter analyze --no-fatal-infos
+
       - name: Build release APK
         run: flutter build apk --release --split-per-abi
 
