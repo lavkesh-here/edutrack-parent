@@ -129,14 +129,6 @@ class _Body extends StatelessWidget {
           ]),
           const SizedBox(height: 12),
 
-          // Address
-          if (profile['address'] != null && profile['address'].toString().isNotEmpty)
-            _Section(title: 'ADDRESS', children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Text(_v('address'), style: const TextStyle(fontSize: 13, color: AppColors.text2)),
-              ),
-            ]),
         ],
       ),
     );
