@@ -381,7 +381,6 @@ class ParentApiClient {
     final data = await _get('/api/v1/parent/child/$studentId/profile');
     return data as Map<String, dynamic>;
   }
-}
 
   static Future<Map<String, dynamic>> getTransport(int studentId) async {
     final data = await _get('/api/v1/parent/child/$studentId/transport');
@@ -439,7 +438,7 @@ class ParentApiClient {
     }
     if (res.statusCode >= 400) throw ApiError(_errorDetail(res), res.statusCode);
   }
-}
+}  // end ParentApiClient
 
 class ApiError implements Exception {
   final String message;
