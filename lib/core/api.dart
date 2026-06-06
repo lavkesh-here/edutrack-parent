@@ -492,6 +492,31 @@ class ParentApiClient {
     }
     if (res.statusCode >= 400) throw ApiError(_errorDetail(res), res.statusCode);
   }
+  // ── Push token registration ───────────────────────────────────────────────
+
+  static Future<void> registerPushToken(String fcmToken, String deviceId) async {
+    await _post('/api/v1/parent/push-token', {'fcm_token': fcmToken, 'device_id': deviceId});
+  }
+
+  static Future<void> deregisterPushToken(String deviceId) async {
+    final base = await getBaseUrl();
+    final req = http.Request('DELETE', Uri.parse('$base/api/v1/parent/push-token'));
+    req.headers.addAll(await _headers());
+    req.body = jsonEncode({'device_id': deviceId});
+    await req.send();
+  }
+
+  // ── In-app notification inbox ─────────────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getInbox() async {
+    final data = await _get('/api/v1/parent/notifications');
+    return List<Map<String, dynamic>>.from(data as List);
+  }
+
+  static Future<void> markInboxRead(int notifId) async {
+    await _post('/api/v1/parent/notifications/$notifId/read', {});
+  }
+
 }  // end ParentApiClient
 
 class ApiError implements Exception {
