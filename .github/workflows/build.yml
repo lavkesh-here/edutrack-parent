@@ -1,9 +1,8 @@
-name: Build & Release APK
+name: Build Dev APK
 
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
     branches: [main]
 
@@ -12,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK
+    name: Build Dev APK
     runs-on: ubuntu-latest
 
     steps:
@@ -31,13 +30,15 @@ jobs:
           flutter-version: '3.24.5'
           channel: stable
 
-      - name: Flutter version check
-        run: flutter --version
-
       - name: Generate Android project
         run: |
           rm -rf android
-          flutter create --platforms=android --org com.edutrack --project-name edutrack_parent .
+          flutter create --platforms=android --org com.edutrack.dev --project-name edutrack_parent .
+
+      - name: Set app label to Parent (Dev)
+        run: |
+          sed -i 's/android:label="edutrack_parent"/android:label="Parent (Dev)"/' \
+            android/app/src/main/AndroidManifest.xml
 
       - name: Disable minify/shrink
         run: |
@@ -59,38 +60,15 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build APK (release)
-        run: flutter build apk --release --split-per-abi
+      - name: Build debug APK
+        run: flutter build apk --debug --split-per-abi
 
       - name: List APK outputs
         run: find build/app/outputs -name '*.apk' | sort
 
-      - name: Upload arm64 APK artifact
+      - name: Upload DEV arm64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: edutrack-parent-arm64
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          name: edutrack-parent-DEV-arm64
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
           retention-days: 30
-
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-          name: EduTrack Parent ${{ github.ref_name }}
-          body: |
-            ## EduTrack Parent App ${{ github.ref_name }}
-
-            ### Install on your Android phone
-            1. Download `app-arm64-v8a-release.apk` (most modern phones)
-            2. Enable "Install from unknown sources" in Android settings
-            3. Install the APK
-
-            ### Features
-            - 📋 View child's daily attendance
-            - 📊 View test results & marks
-            - 📚 See homework & work logs from teachers
-            - 🔔 Receive notifications from school
-            - 👨‍👩‍👧 Multi-child support across schools

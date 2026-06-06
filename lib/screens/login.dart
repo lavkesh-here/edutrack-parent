@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/auth.dart';
@@ -131,28 +130,26 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 48),
-              if (kDebugMode) ...[
-                GestureDetector(
-                  onTap: _changeServer,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.dns_outlined, size: 12, color: AppColors.muted),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          _serverUrl.replaceFirst(RegExp(r'https?://'), ''),
-                          style: const TextStyle(fontSize: 11, color: AppColors.muted),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+              GestureDetector(
+                onTap: _changeServer,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.dns_outlined, size: 12, color: AppColors.muted),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        _serverUrl.replaceFirst(RegExp(r'https?://'), ''),
+                        style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.edit_outlined, size: 11, color: AppColors.muted),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.edit_outlined, size: 11, color: AppColors.muted),
+                  ],
                 ),
-                const SizedBox(height: 12),
-              ],
+              ),
+              const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
