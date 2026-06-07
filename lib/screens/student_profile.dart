@@ -96,11 +96,10 @@ class _Body extends StatelessWidget {
                     color: Colors.white.withOpacity(0.25),
                     shape: BoxShape.circle,
                   ),
-                  child: Center(
-                    child: Text(
-                      child.studentName[0].toUpperCase(),
-                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white),
-                    ),
+                  child: ClipOval(
+                    child: _v('photo_url') != '—'
+                        ? Image.network(_v('photo_url'), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Text(child.studentName[0].toUpperCase(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white))))
+                        : Center(child: Text(child.studentName[0].toUpperCase(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white))),
                   ),
                 ),
                 const SizedBox(width: 16),

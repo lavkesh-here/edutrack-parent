@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
+import 'attendance.dart';
+import 'tests.dart';
+import 'fees.dart';
+import 'work_log.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final ChildInfo? child;
@@ -60,6 +64,32 @@ class _State extends State<NotificationsScreen> {
         if (idx != -1) _inbox[idx] = {..._inbox[idx], 'is_read': true};
       });
     } catch (_) {}
+  }
+
+  void _handleInboxTap(Map<String, dynamic> notif) {
+    final type = notif['notification_type'] as String? ?? '';
+    final child = widget.child;
+    if (child == null) return;
+    switch (type) {
+      case 'attendance_absent':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => AttendanceScreen(child: child)));
+        break;
+      case 'test_result':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => TestsScreen(child: child)));
+        break;
+      case 'fee_reminder':
+      case 'fee_overdue':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => FeesScreen(child: child)));
+        break;
+      case 'work_log':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => WorkLogScreen(child: child)));
+        break;
+      default:
+        // general or unknown — mark read in-place only
+        break;
+    }
+    final id = notif['id'] as int;
+    if (!(notif['is_read'] as bool? ?? false)) _markRead(id);
   }
 
   String _broadcastIcon(String type) {
@@ -135,7 +165,7 @@ class _State extends State<NotificationsScreen> {
                             subtitle: body,
                             date: fmtDate(date),
                             isRead: isRead,
-                            onTap: isRead ? null : () => _markRead(id),
+                            onTap: () => _handleInboxTap(n),
                           );
                         }),
                       ],
