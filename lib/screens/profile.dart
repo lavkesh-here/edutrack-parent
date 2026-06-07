@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../core/auth.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
-import '../widgets/common.dart';
 import 'add_child.dart';
 
 class ProfileScreen extends StatelessWidget {
