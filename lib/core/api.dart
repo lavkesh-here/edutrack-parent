@@ -51,6 +51,8 @@ class ChildInfo {
   final String schoolCode;
   final String? classLabel;
   final String relationType;
+  final String? gender;
+  final String? photoUrl;
 
   const ChildInfo({
     required this.linkId,
@@ -62,7 +64,23 @@ class ChildInfo {
     required this.schoolCode,
     this.classLabel,
     required this.relationType,
+    this.gender,
+    this.photoUrl,
   });
+
+  ChildInfo copyWith({String? photoUrl}) => ChildInfo(
+        linkId: linkId,
+        studentId: studentId,
+        schoolId: schoolId,
+        studentName: studentName,
+        admissionNumber: admissionNumber,
+        schoolName: schoolName,
+        schoolCode: schoolCode,
+        classLabel: classLabel,
+        relationType: relationType,
+        gender: gender,
+        photoUrl: photoUrl ?? this.photoUrl,
+      );
 
   factory ChildInfo.fromJson(Map<String, dynamic> j) => ChildInfo(
         linkId: j['link_id'] as int,
@@ -74,6 +92,8 @@ class ChildInfo {
         schoolCode: j['school_code'] as String,
         classLabel: j['class_label'] as String?,
         relationType: j['relation_type'] as String? ?? 'parent',
+        gender: j['gender'] as String?,
+        photoUrl: j['photo_url'] as String?,
       );
 }
 
@@ -536,6 +556,26 @@ class ParentApiClient {
   static Future<List<Map<String, dynamic>>> getUpcomingTests(int studentId) async {
     final data = await _get('/api/v1/parent/child/$studentId/upcoming-tests');
     return (data as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  // ── Onboarding ────────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getOnboardingState() async {
+    return (await _get('/api/v1/parent/onboarding')) as Map<String, dynamic>;
+  }
+
+  static Future<void> markOnboardingSeen(String actionKey) async {
+    await _post('/api/v1/parent/onboarding/$actionKey/seen', {});
+  }
+
+  // ── Student photo (parent: always changeable) ─────────────────────────────
+
+  static Future<Map<String, dynamic>> getChildPhotoUploadUrl(int studentId) async {
+    return (await _post('/api/v1/parent/child/$studentId/photo/upload-url', {})) as Map<String, dynamic>;
+  }
+
+  static Future<void> saveChildPhoto(int studentId, String photoUrl) async {
+    await _patch('/api/v1/parent/child/$studentId/photo', {'photo_url': photoUrl});
   }
 
 }  // end ParentApiClient

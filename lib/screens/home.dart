@@ -21,6 +21,7 @@ import 'attender.dart';
 import 'teachers.dart';
 import 'circulars.dart';
 import 'timetable.dart';
+import 'child_summary.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +32,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  late final PageController _childPageCtrl = PageController();
   int _idx = 0;
   List<ChildInfo> _children = [];
   int _childIdx = 0;
@@ -43,6 +45,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    _childPageCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProfile() async {
@@ -109,10 +117,22 @@ class _HomeScreenState extends State<HomeScreen> {
             ? const Center(child: CircularProgressIndicator(color: AppColors.teal))
             : Column(
                 children: [
-                  if (_children.length > 1) _ChildSwitcher(
+                  if (_children.isNotEmpty) _ChildCardSwitcher(
                     children: _children,
                     activeIdx: _childIdx,
+                    pageCtrl: _childPageCtrl,
                     onSwitch: (i) => setState(() => _childIdx = i),
+                    onCardTap: (child) => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ChildSummaryScreen(
+                        child: child,
+                        onPhotoUpdated: (url) {
+                          setState(() {
+                            _children = _children.map((c) => c.studentId == child.studentId ? c.copyWith(photoUrl: url) : c).toList();
+                          });
+                        },
+                      )),
+                    ),
                   ),
                   Expanded(child: IndexedStack(index: _idx, children: _screens)),
                 ],
@@ -246,57 +266,120 @@ class _DrawerItem extends StatelessWidget {
       );
 }
 
-// ── Child Switcher ────────────────────────────────────────────────────────────
+// ── Child Card Switcher (swipeable PageView) ──────────────────────────────────
 
-class _ChildSwitcher extends StatelessWidget {
+class _ChildCardSwitcher extends StatelessWidget {
   final List<ChildInfo> children;
   final int activeIdx;
+  final PageController pageCtrl;
   final void Function(int) onSwitch;
+  final void Function(ChildInfo) onCardTap;
 
-  const _ChildSwitcher({required this.children, required this.activeIdx, required this.onSwitch});
+  const _ChildCardSwitcher({
+    required this.children,
+    required this.activeIdx,
+    required this.pageCtrl,
+    required this.onSwitch,
+    required this.onCardTap,
+  });
+
+  String _initials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    return parts.first.isNotEmpty ? parts.first[0].toUpperCase() : '?';
+  }
 
   @override
-  Widget build(BuildContext context) => Container(
-        color: Colors.white,
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: Row(
-          children: [
-            const Text('Viewing:', style: TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: SizedBox(
-                height: 32,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: children.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) {
-                    final child = children[i];
-                    final active = i == activeIdx;
-                    return GestureDetector(
-                      onTap: () => onSwitch(i),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: active ? AppColors.teal : AppColors.tealLight,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          child.studentName.split(' ').first,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: active ? Colors.white : AppColors.teal,
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 72,
+            child: PageView.builder(
+              controller: pageCtrl,
+              itemCount: children.length,
+              onPageChanged: onSwitch,
+              itemBuilder: (_, i) {
+                final child = children[i];
+                final isFemale = child.gender?.toLowerCase() == 'female';
+                final avatarBg = isFemale ? const Color(0xFFF3E8FF) : const Color(0xFFDBEAFE);
+                final avatarFg = isFemale ? const Color(0xFF7C3AED) : const Color(0xFF1D4ED8);
+
+                return GestureDetector(
+                  onTap: () => onCardTap(child),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.bg,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.teal.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        // Avatar
+                        child.photoUrl != null && child.photoUrl!.isNotEmpty
+                            ? ClipOval(
+                                child: Image.network(
+                                  child.photoUrl!,
+                                  width: 40, height: 40, fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => _initialsAvatar(child, avatarBg, avatarFg),
+                                ),
+                              )
+                            : _initialsAvatar(child, avatarBg, avatarFg),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                child.studentName,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.text),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (child.classLabel != null)
+                                Text(child.classLabel!, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                            ],
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
+                        const Icon(Icons.chevron_right, color: AppColors.muted, size: 18),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-          ],
+          ),
+          // Dot indicators
+          if (children.length > 1)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(children.length, (i) => AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: i == activeIdx ? 16 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: i == activeIdx ? AppColors.teal : AppColors.border,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              )),
+            ),
+          const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+
+  Widget _initialsAvatar(ChildInfo child, Color bg, Color fg) => Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+        child: Center(
+          child: Text(_initials(child.studentName), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: fg)),
         ),
       );
 }
