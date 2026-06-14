@@ -524,6 +524,20 @@ class ParentApiClient {
     return (data as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
   }
 
+  // ── Timetable ─────────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getChildTimetable(int studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/timetable');
+    return data as Map<String, dynamic>;
+  }
+
+  // ── Upcoming tests ────────────────────────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getUpcomingTests(int studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/upcoming-tests');
+    return (data as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
+  }
+
 }  // end ParentApiClient
 
 class ApiError implements Exception {
