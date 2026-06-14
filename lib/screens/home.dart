@@ -71,8 +71,15 @@ class _HomeScreenState extends State<HomeScreen> {
       _HomeTab(
         child: child,
         children: _children,
+        childIdx: _childIdx,
+        onSwitchChild: (i) => setState(() { _childIdx = i; _childPageCtrl.animateToPage(i, duration: const Duration(milliseconds: 250), curve: Curves.easeInOut); }),
         onSwitchTab: (i) => setState(() => _idx = i),
         onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+        onPhotoUpdated: (url) => setState(() {
+          if (child != null) {
+            _children = _children.map((c) => c.studentId == child.studentId ? c.copyWith(photoUrl: url) : c).toList();
+          }
+        }),
       ),
       AttendanceScreen(child: child),
       TestsScreen(child: child),
@@ -115,28 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         body: _loadingProfile
             ? const Center(child: CircularProgressIndicator(color: AppColors.teal))
-            : Column(
-                children: [
-                  if (_children.isNotEmpty) _ChildCardSwitcher(
-                    children: _children,
-                    activeIdx: _childIdx,
-                    pageCtrl: _childPageCtrl,
-                    onSwitch: (i) => setState(() => _childIdx = i),
-                    onCardTap: (child) => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => ChildSummaryScreen(
-                        child: child,
-                        onPhotoUpdated: (url) {
-                          setState(() {
-                            _children = _children.map((c) => c.studentId == child.studentId ? c.copyWith(photoUrl: url) : c).toList();
-                          });
-                        },
-                      )),
-                    ),
-                  ),
-                  Expanded(child: IndexedStack(index: _idx, children: _screens)),
-                ],
-              ),
+            : IndexedStack(index: _idx, children: _screens),
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -389,10 +375,21 @@ class _ChildCardSwitcher extends StatelessWidget {
 class _HomeTab extends StatefulWidget {
   final ChildInfo? child;
   final List<ChildInfo> children;
+  final int childIdx;
+  final void Function(int) onSwitchChild;
   final void Function(int) onSwitchTab;
   final VoidCallback? onMenuTap;
+  final void Function(String url)? onPhotoUpdated;
 
-  const _HomeTab({this.child, required this.children, required this.onSwitchTab, this.onMenuTap});
+  const _HomeTab({
+    this.child,
+    required this.children,
+    required this.childIdx,
+    required this.onSwitchChild,
+    required this.onSwitchTab,
+    this.onMenuTap,
+    this.onPhotoUpdated,
+  });
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -517,6 +514,40 @@ class _HomeTabState extends State<_HomeTab> {
 
   void _push(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
 
+  Widget _buildAvatar(ChildInfo? child) {
+    if (child == null) {
+      return Container(
+        width: 36, height: 36,
+        decoration: const BoxDecoration(color: AppColors.bg, shape: BoxShape.circle),
+        child: const Center(child: Icon(Icons.person, color: AppColors.muted, size: 20)),
+      );
+    }
+    final isFemale = child.gender?.toLowerCase() == 'female';
+    final avatarBg = isFemale ? const Color(0xFFF3E8FF) : const Color(0xFFDBEAFE);
+    final avatarFg = isFemale ? const Color(0xFF7C3AED) : const Color(0xFF1D4ED8);
+    String initials(String name) {
+      final parts = name.trim().split(' ');
+      if (parts.length >= 2) return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+      return parts.first.isNotEmpty ? parts.first[0].toUpperCase() : '?';
+    }
+    if (child.photoUrl != null && child.photoUrl!.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          child.photoUrl!,
+          width: 36, height: 36, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _initialsCircle(initials(child.studentName), avatarBg, avatarFg),
+        ),
+      );
+    }
+    return _initialsCircle(initials(child.studentName), avatarBg, avatarFg);
+  }
+
+  Widget _initialsCircle(String text, Color bg, Color fg) => Container(
+        width: 36, height: 36,
+        decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+        child: Center(child: Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: fg))),
+      );
+
   List<_Tile> get _allTiles {
     final child = widget.child;
     if (child == null) return [];
@@ -552,46 +583,74 @@ class _HomeTabState extends State<_HomeTab> {
       body: SafeArea(
         child: Column(
           children: [
-            // Static header
+            // Header with child info and prev/next arrows
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(4, 16, 12, 16),
+              padding: const EdgeInsets.fromLTRB(4, 12, 12, 12),
               child: Row(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.menu, color: AppColors.text2),
                     onPressed: widget.onMenuTap,
                   ),
-                  Container(
-                    width: 36, height: 36,
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
-                      shape: BoxShape.circle,
+                  // Prev arrow
+                  if (widget.children.length > 1)
+                    IconButton(
+                      icon: Icon(Icons.chevron_left,
+                          color: widget.childIdx > 0 ? AppColors.teal : AppColors.border, size: 22),
+                      onPressed: widget.childIdx > 0
+                          ? () => widget.onSwitchChild(widget.childIdx - 1)
+                          : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28),
                     ),
-                    child: Center(
-                      child: Text(
-                        child?.studentName[0] ?? '?',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // Avatar + name (tappable → ChildSummaryScreen)
+                  GestureDetector(
+                    onTap: child != null
+                        ? () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChildSummaryScreen(
+                                  child: child,
+                                  onPhotoUpdated: widget.onPhotoUpdated,
+                                ),
+                              ),
+                            )
+                        : null,
+                    child: Row(
                       children: [
-                        Text(
-                          child?.studentName ?? 'No child linked',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.text),
+                        _buildAvatar(child),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              child?.studentName ?? 'No child linked',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.text),
+                            ),
+                            if (child != null)
+                              Text(
+                                '${child.classLabel ?? ''} · ${child.schoolName}',
+                                style: const TextStyle(fontSize: 10, color: AppColors.muted),
+                              ),
+                          ],
                         ),
-                        if (child != null)
-                          Text(
-                            '${child.classLabel ?? ''} · ${child.schoolName}',
-                            style: const TextStyle(fontSize: 11, color: AppColors.muted),
-                          ),
                       ],
                     ),
                   ),
+                  const Spacer(),
+                  // Next arrow
+                  if (widget.children.length > 1)
+                    IconButton(
+                      icon: Icon(Icons.chevron_right,
+                          color: widget.childIdx < widget.children.length - 1 ? AppColors.teal : AppColors.border, size: 22),
+                      onPressed: widget.childIdx < widget.children.length - 1
+                          ? () => widget.onSwitchChild(widget.childIdx + 1)
+                          : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28),
+                    ),
+                  // Notification bell
                   if (widget.child != null)
                     Stack(
                       clipBehavior: Clip.none,
@@ -734,11 +793,11 @@ class _HomeTabState extends State<_HomeTab> {
                                         _Tile('📚', 'Work Log', AppColors.sun, AppColors.sunLight, () => widget.onSwitchTab(3), 'ACADEMICS'),
                                       ]),
                                       const SizedBox(height: 8),
-                                      _GridSection(title: 'COMMUNICATION', tiles: [
+                                      _GridSection(title: 'COMMUNICATION', defaultExpanded: true, tiles: [
                                         _Tile('🔔', 'Notifications', AppColors.sky, AppColors.skyLight, () => _push(NotificationsScreen(child: child)), 'COMMUNICATION'),
                                       ]),
                                       const SizedBox(height: 8),
-                                      _GridSection(title: 'SCHOOL INFO', tiles: [
+                                      _GridSection(title: 'SCHOOL INFO', defaultExpanded: true, tiles: [
                                         _Tile('🏫', 'School Contacts', AppColors.teal, AppColors.tealLight, () => _push(SchoolContactsScreen(children: widget.children)), 'SCHOOL INFO'),
                                         _Tile('🎓', 'Student Profile', AppColors.violet, AppColors.violetLight, () => _push(StudentProfileScreen(child: child)), 'SCHOOL INFO'),
                                         _Tile('👩‍🏫', 'Teachers', AppColors.sky, AppColors.skyLight, () => _push(TeachersScreen(child: child)), 'SCHOOL INFO'),

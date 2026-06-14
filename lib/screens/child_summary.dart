@@ -15,7 +15,8 @@ class ChildSummaryScreen extends StatefulWidget {
   State<ChildSummaryScreen> createState() => _ChildSummaryScreenState();
 }
 
-class _ChildSummaryScreenState extends State<ChildSummaryScreen> {
+class _ChildSummaryScreenState extends State<ChildSummaryScreen>
+    with SingleTickerProviderStateMixin {
   Map<String, dynamic>? _profile;
   AttendanceSummary? _attendance;
   List<TestResult> _tests = [];
@@ -24,12 +25,20 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen> {
   String? _error;
   bool _uploading = false;
   String? _photoUrl;
+  late final TabController _tab;
 
   @override
   void initState() {
     super.initState();
+    _tab = TabController(length: 4, vsync: this);
     _photoUrl = widget.child.photoUrl;
     _load();
+  }
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -46,9 +55,9 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen> {
         setState(() {
           _profile = results[0] as Map<String, dynamic>;
           _attendance = results[1] as AttendanceSummary;
-          _tests = ((results[2] as List<TestResult>)).take(5).toList();
+          _tests = (results[2] as List<TestResult>).toList();
           final logDates = results[3] as List<WorkLogDate>;
-          _workLogs = logDates.expand((d) => d.logs).take(5).toList();
+          _workLogs = logDates.expand((d) => d.logs).toList();
           _photoUrl = _profile?['photo_url'] as String? ?? _photoUrl;
           _loading = false;
         });
@@ -114,133 +123,211 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen> {
   Widget _body() {
     final name = widget.child.studentName;
     final classLabel = _profile?['class_label'] as String? ?? widget.child.classLabel ?? '';
-    final admNo = _profile?['admission_number'] as String? ?? widget.child.admissionNumber;
+    final admNo = _profile?['admission_number'] as String? ?? widget.child.admissionNumber ?? '';
     final gender = _profile?['gender'] as String? ?? widget.child.gender;
 
-    return CustomScrollView(
-      slivers: [
-        // Hero header
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) => [
         SliverAppBar(
-          expandedHeight: 240,
+          expandedHeight: 220,
           pinned: true,
+          backgroundColor: AppColors.teal,
+          foregroundColor: Colors.white,
+          title: Text(
+            '$name · $classLabel',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          ),
           flexibleSpace: FlexibleSpaceBar(
-            background: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.teal, Color(0xFF0891B2)],
-                ),
-              ),
-              child: SafeArea(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 40),
-                    // Tappable avatar with camera icon
-                    Stack(
-                      alignment: Alignment.bottomRight,
-                      children: [
-                        _ChildAvatar(name: name, photoUrl: _photoUrl, gender: gender, size: 80),
-                        GestureDetector(
-                          onTap: _uploading ? null : _pickAndUploadPhoto,
-                          child: Container(
-                            width: 28, height: 28,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.teal.withOpacity(0.3), width: 1.5),
-                            ),
-                            child: _uploading
-                                ? const Padding(
-                                    padding: EdgeInsets.all(6),
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.teal),
-                                  )
-                                : const Icon(Icons.camera_alt, size: 16, color: AppColors.teal),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
-                    const SizedBox(height: 3),
-                    Text(
-                      '$classLabel · $admNo',
-                      style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.85)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            background: _buildHeader(name, classLabel, admNo, gender),
           ),
         ),
-
-        SliverPadding(
-          padding: const EdgeInsets.all(16),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              // Attendance summary
-              if (_attendance != null) ...[
-                _SectionHeader('Attendance This Month'),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _StatCard(label: 'Present', value: '${_attendance!.present}', color: AppColors.teal, bg: AppColors.tealLight),
-                    const SizedBox(width: 8),
-                    _StatCard(label: 'Absent', value: '${_attendance!.absent}', color: AppColors.coral, bg: AppColors.coralLight),
-                    const SizedBox(width: 8),
-                    _StatCard(
-                      label: 'Attendance',
-                      value: _attendance!.total > 0 ? '${((_attendance!.present / _attendance!.total) * 100).round()}%' : '—',
-                      color: AppColors.sky,
-                      bg: AppColors.skyLight,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // Recent tests
-              if (_tests.isNotEmpty) ...[
-                _SectionHeader('Recent Tests'),
-                const SizedBox(height: 8),
-                ..._tests.map((t) => _TestRow(test: t)),
-                const SizedBox(height: 20),
-              ],
-
-              // Recent work logs
-              if (_workLogs.isNotEmpty) ...[
-                _SectionHeader('Recent Work Logs'),
-                const SizedBox(height: 8),
-                ..._workLogs.map((w) => _WorkLogRow(item: w)),
-                const SizedBox(height: 20),
-              ],
-
-              // Profile info
-              _SectionHeader('Profile'),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  children: [
-                    _InfoRow(label: 'Admission No.', value: admNo),
-                    if (gender != null && gender.isNotEmpty) _InfoRow(label: 'Gender', value: _capitalize(gender)),
-                    if (_profile?['dob'] != null) _InfoRow(label: 'Date of Birth', value: _fmtDate(_profile!['dob'] as String)),
-                    if (_profile?['guardian_name'] != null) _InfoRow(label: 'Guardian', value: _profile!['guardian_name'] as String),
-                    if (_profile?['guardian_phone'] != null) _InfoRow(label: 'Guardian Phone', value: _profile!['guardian_phone'] as String),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-            ]),
-          ),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _StickyTabBar(_tab),
         ),
       ],
+      body: TabBarView(
+        controller: _tab,
+        children: [
+          _profileTab(admNo, gender),
+          _attendanceTab(),
+          _testsTab(),
+          _workLogTab(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(String name, String classLabel, String admNo, String? gender) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.teal, Color(0xFF0891B2)],
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 40),
+            Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                _ChildAvatar(name: name, photoUrl: _photoUrl, gender: gender, size: 80),
+                GestureDetector(
+                  onTap: _uploading ? null : _pickAndUploadPhoto,
+                  child: Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.teal.withOpacity(0.3), width: 1.5),
+                    ),
+                    child: _uploading
+                        ? const Padding(
+                            padding: EdgeInsets.all(6),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.teal),
+                          )
+                        : const Icon(Icons.camera_alt, size: 16, color: AppColors.teal),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
+            const SizedBox(height: 3),
+            Text(
+              '$classLabel · $admNo',
+              style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.85)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _profileTab(String admNo, String? gender) {
+    return RefreshIndicator(
+      color: AppColors.teal,
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              children: [
+                if (admNo.isNotEmpty) _InfoRow(label: 'Admission No.', value: admNo),
+                if (gender != null && gender.isNotEmpty)
+                  _InfoRow(label: 'Gender', value: _capitalize(gender)),
+                if (_profile?['dob'] != null)
+                  _InfoRow(label: 'Date of Birth', value: _fmtDate(_profile!['dob'] as String)),
+                if (_profile?['guardian_name'] != null)
+                  _InfoRow(label: 'Guardian', value: _profile!['guardian_name'] as String),
+                if (_profile?['guardian_phone'] != null)
+                  _InfoRow(label: 'Guardian Phone', value: _profile!['guardian_phone'] as String),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _attendanceTab() {
+    if (_attendance == null) {
+      return const Center(child: Text('No attendance data', style: TextStyle(color: AppColors.muted)));
+    }
+    final pct = _attendance!.total > 0
+        ? ((_attendance!.present / _attendance!.total) * 100).round()
+        : null;
+    return RefreshIndicator(
+      color: AppColors.teal,
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              _StatCard(label: 'Present', value: '${_attendance!.present}', color: AppColors.teal, bg: AppColors.tealLight),
+              const SizedBox(width: 8),
+              _StatCard(label: 'Absent', value: '${_attendance!.absent}', color: AppColors.coral, bg: AppColors.coralLight),
+              const SizedBox(width: 8),
+              _StatCard(
+                label: 'Attendance',
+                value: pct != null ? '$pct%' : '—',
+                color: AppColors.sky,
+                bg: AppColors.skyLight,
+              ),
+            ],
+          ),
+          if (_attendance!.late > 0) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              _StatCard(label: 'Late', value: '${_attendance!.late}', color: AppColors.amber, bg: AppColors.sunLight),
+            ]),
+          ],
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _testsTab() {
+    if (_tests.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('📊', style: TextStyle(fontSize: 36)),
+            SizedBox(height: 12),
+            Text('No tests yet', style: TextStyle(color: AppColors.muted)),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      color: AppColors.teal,
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _tests.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (_, i) => _TestRow(test: _tests[i]),
+      ),
+    );
+  }
+
+  Widget _workLogTab() {
+    if (_workLogs.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('📚', style: TextStyle(fontSize: 36)),
+            SizedBox(height: 12),
+            Text('No work logs yet', style: TextStyle(color: AppColors.muted)),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      color: AppColors.teal,
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _workLogs.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (_, i) => _WorkLogRow(item: _workLogs[i]),
+      ),
     );
   }
 
@@ -255,7 +342,49 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen> {
   String _capitalize(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 }
 
-// ── Child avatar (gender-based initials or photo) ─────────────────────────────
+// ── Sticky tab bar ────────────────────────────────────────────────────────────
+
+class _StickyTabBar extends SliverPersistentHeaderDelegate {
+  final TabController controller;
+  const _StickyTabBar(this.controller);
+
+  @override double get minExtent => 49;
+  @override double get maxExtent => 49;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          Expanded(
+            child: TabBar(
+              controller: controller,
+              labelColor: AppColors.teal,
+              unselectedLabelColor: AppColors.muted,
+              indicatorColor: AppColors.teal,
+              indicatorWeight: 2,
+              labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              tabs: const [
+                Tab(text: 'Profile'),
+                Tab(text: 'Attendance'),
+                Tab(text: 'Tests'),
+                Tab(text: 'Work Log'),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppColors.border),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_StickyTabBar old) => false;
+}
+
+// ── Child avatar ──────────────────────────────────────────────────────────────
 
 class _ChildAvatar extends StatelessWidget {
   final String name;
@@ -297,16 +426,6 @@ class _ChildAvatar extends StatelessWidget {
 }
 
 // ── Shared small widgets ──────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  final String text;
-  const _SectionHeader(this.text);
-  @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.3),
-      );
-}
 
 class _StatCard extends StatelessWidget {
   final String label;
@@ -356,10 +475,15 @@ class _TestRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pct = test.percentage;
-    final Color pctColor = pct == null ? AppColors.muted : pct >= 75 ? AppColors.teal : pct >= 40 ? AppColors.amber : AppColors.coral;
+    final Color pctColor = pct == null
+        ? AppColors.muted
+        : pct >= 75
+            ? AppColors.teal
+            : pct >= 40
+                ? AppColors.amber
+                : AppColors.coral;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
       child: Row(
@@ -402,7 +526,6 @@ class _WorkLogRow extends StatelessWidget {
     final isAck = item.ackStatus == 'acknowledged' || item.ackStatus == 'completed';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
       child: Row(
