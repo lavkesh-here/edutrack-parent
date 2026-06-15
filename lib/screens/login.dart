@@ -364,8 +364,10 @@ class _CredentialsScreenState extends State<_CredentialsScreen> {
                       controller: _phoneCtrl,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
+                      maxLength: 20,
                       decoration: const InputDecoration(
                         hintText: '9876543210',
+                        counterText: '',
                         prefixIcon: Icon(Icons.phone_outlined, color: AppColors.muted, size: 18),
                       ),
                     ),
@@ -377,9 +379,11 @@ class _CredentialsScreenState extends State<_CredentialsScreen> {
                       controller: _passCtrl,
                       obscureText: _obscure,
                       textInputAction: TextInputAction.done,
+                      maxLength: 128,
                       onSubmitted: (_) => _login(),
                       decoration: InputDecoration(
                         hintText: '••••••••',
+                        counterText: '',
                         prefixIcon: const Icon(Icons.lock_outline, color: AppColors.muted, size: 18),
                         suffixIcon: GestureDetector(
                           onTap: () => setState(() => _obscure = !_obscure),

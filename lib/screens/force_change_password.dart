@@ -28,6 +28,7 @@ class _State extends State<ForceChangePasswordScreen> {
   Future<void> _submit() async {
     if (_newCtrl.text != _confirmCtrl.text) { setState(() => _error = 'New passwords do not match'); return; }
     if (_newCtrl.text.length < 6) { setState(() => _error = 'Password must be at least 6 characters'); return; }
+    if (_newCtrl.text.length > 128) { setState(() => _error = 'Password must be at most 128 characters'); return; }
     setState(() { _loading = true; _error = null; });
     try {
       final auth = context.read<ParentAuthProvider>();
@@ -129,10 +130,12 @@ class _PwdField extends StatelessWidget {
       TextField(
         controller: ctrl,
         obscureText: obscure,
+        maxLength: 128,
         textInputAction: isDone ? TextInputAction.done : TextInputAction.next,
         onSubmitted: onSubmit != null ? (_) => onSubmit!() : null,
         decoration: InputDecoration(
           hintText: hint,
+          counterText: '',
           prefixIcon: const Icon(Icons.lock_outline, color: AppColors.muted, size: 18),
           suffixIcon: GestureDetector(onTap: onToggle, child: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.muted, size: 18)),
         ),

@@ -77,8 +77,9 @@ class _State extends State<AddChildScreen> {
                   child: TextField(
                     controller: _codeCtrl,
                     textCapitalization: TextCapitalization.characters,
+                    maxLength: 50,
                     onChanged: (_) => setState(() => _school = null),
-                    decoration: const InputDecoration(hintText: 'e.g. DEMO001'),
+                    decoration: const InputDecoration(hintText: 'e.g. DEMO001', counterText: ''),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -114,7 +115,8 @@ class _State extends State<AddChildScreen> {
             const SizedBox(height: 6),
             TextField(
               controller: _admCtrl,
-              decoration: const InputDecoration(hintText: 'Student admission number'),
+              maxLength: 50,
+              decoration: const InputDecoration(hintText: 'Student admission number', counterText: ''),
             ),
             const SizedBox(height: 16),
             const Text('YOUR PASSWORD (CONFIRM)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
@@ -122,8 +124,10 @@ class _State extends State<AddChildScreen> {
             TextField(
               controller: _passCtrl,
               obscureText: _obscure,
+              maxLength: 128,
               decoration: InputDecoration(
                 hintText: 'Re-enter your password',
+                counterText: '',
                 suffixIcon: GestureDetector(
                   onTap: () => setState(() => _obscure = !_obscure),
                   child: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.muted, size: 18),
