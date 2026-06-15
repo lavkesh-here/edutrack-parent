@@ -57,8 +57,16 @@ jobs:
 
       - name: Patch build.gradle for Firebase
         run: |
-          sed -i "/dependencies {/a\\        classpath 'com.google.gms:google-services:4.4.2'" \
-            android/build.gradle
+          # Prepend buildscript block to root build.gradle (Flutter 3.22+ no longer includes one)
+          python3 - << 'PYEOF'
+import re
+with open('android/build.gradle', 'r') as f:
+    content = f.read()
+buildscript = 'buildscript {\n    repositories {\n        google()\n        mavenCentral()\n    }\n    dependencies {\n        classpath \'com.google.gms:google-services:4.4.2\'\n    }\n}\n\n'
+with open('android/build.gradle', 'w') as f:
+    f.write(buildscript + content)
+PYEOF
+          # App build.gradle — apply the plugin
           echo "" >> android/app/build.gradle
           echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
 
