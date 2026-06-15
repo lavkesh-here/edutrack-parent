@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api.dart';
+import 'cache.dart';
+import 'features.dart';
 
 class ParentUser {
   final String parentName;
@@ -12,10 +14,12 @@ class ParentUser {
 class ParentAuthProvider extends ChangeNotifier {
   ParentUser? _user;
   bool _loading = true;
+  FeatureFlags _features = FeatureFlags.defaults();
 
   ParentUser? get user => _user;
   bool get isLoggedIn => _user != null;
   bool get loading => _loading;
+  FeatureFlags get features => _features;
 
   String get initials {
     if (_user == null) return '?';
@@ -51,8 +55,23 @@ class ParentAuthProvider extends ChangeNotifier {
     await prefs.setString('parent_name', res.parentName);
     await prefs.setInt('parent_id', res.parentId);
     _user = ParentUser(parentName: res.parentName, parentId: res.parentId);
+    _loadFeatureFlags();
     notifyListeners();
     return res.mustChangePassword;
+  }
+
+  Future<void> _loadFeatureFlags() async {
+    try {
+      final cached = await FeatureFlags.fromCache();
+      if (cached != null) {
+        _features = cached;
+        notifyListeners();
+      }
+      final fresh = await ParentApiClient.getFeatureConfig();
+      _features = FeatureFlags.fromJson(fresh);
+      await _features.saveToCache();
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> logout() async {
@@ -61,6 +80,8 @@ class ParentAuthProvider extends ChangeNotifier {
     await prefs.remove('parent_name');
     await prefs.remove('parent_id');
     _user = null;
+    _features = FeatureFlags.defaults();
+    await CacheService.clearAll();
     notifyListeners();
   }
 }

@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/auth.dart';
 import 'core/api.dart';
@@ -24,8 +26,15 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    // Catch Flutter framework errors (widget build failures, etc.)
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    // Catch Dart async errors outside Flutter (Future.error, isolate errors)
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
   } catch (_) {
-    // Firebase not configured yet — push notifications will be unavailable
+    // Firebase not configured yet — Crashlytics unavailable, app runs normally
   }
 
   runApp(
@@ -169,6 +178,13 @@ class _RootState extends State<_Root> {
         ),
       );
     }
+    // Set Crashlytics user context when logged in
+    if (auth.isLoggedIn && auth.user != null) {
+      try {
+        FirebaseCrashlytics.instance.setUserIdentifier('parent_${auth.user!.parentId}');
+      } catch (_) {}
+    }
+
     return auth.isLoggedIn ? const HomeScreen() : const LoginScreen();
   }
 }
