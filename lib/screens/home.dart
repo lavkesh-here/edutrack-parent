@@ -21,6 +21,7 @@ import 'attender.dart';
 import 'teachers.dart';
 import 'circulars.dart';
 import 'timetable.dart';
+import 'upcoming_tests.dart';
 import 'child_summary.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -554,6 +555,7 @@ class _HomeTabState extends State<_HomeTab> {
     return [
       _Tile('📋', 'Attendance', AppColors.teal, AppColors.tealLight, () => widget.onSwitchTab(1), 'ACADEMICS'),
       _Tile('📊', 'Results', AppColors.violet, AppColors.violetLight, () => widget.onSwitchTab(2), 'ACADEMICS'),
+      _Tile('📅', 'Upcoming Tests', AppColors.sky, AppColors.skyLight, () => _push(UpcomingTestsScreen(child: child)), 'ACADEMICS'),
       _Tile('📚', 'Work Log', AppColors.sun, AppColors.sunLight, () => widget.onSwitchTab(3), 'ACADEMICS'),
       _Tile('🔔', 'Notifications', AppColors.sky, AppColors.skyLight, () => _push(NotificationsScreen(child: child)), 'COMMUNICATION'),
       _Tile('📋', 'Circulars', AppColors.teal, AppColors.tealLight, () => _push(CircularsScreen(child: child)), 'COMMUNICATION'),
@@ -790,11 +792,13 @@ class _HomeTabState extends State<_HomeTab> {
                                       _GridSection(title: 'ACADEMICS', defaultExpanded: true, tiles: [
                                         _Tile('📋', 'Attendance', AppColors.teal, AppColors.tealLight, () => widget.onSwitchTab(1), 'ACADEMICS'),
                                         _Tile('📊', 'Results', AppColors.violet, AppColors.violetLight, () => widget.onSwitchTab(2), 'ACADEMICS'),
+                                        _Tile('📅', 'Upcoming Tests', AppColors.sky, AppColors.skyLight, () => _push(UpcomingTestsScreen(child: child)), 'ACADEMICS'),
                                         _Tile('📚', 'Work Log', AppColors.sun, AppColors.sunLight, () => widget.onSwitchTab(3), 'ACADEMICS'),
                                       ]),
                                       const SizedBox(height: 8),
                                       _GridSection(title: 'COMMUNICATION', defaultExpanded: true, tiles: [
                                         _Tile('🔔', 'Notifications', AppColors.sky, AppColors.skyLight, () => _push(NotificationsScreen(child: child)), 'COMMUNICATION'),
+                                        _Tile('📋', 'Circulars', AppColors.teal, AppColors.tealLight, () => _push(CircularsScreen(child: child)), 'COMMUNICATION'),
                                       ]),
                                       const SizedBox(height: 8),
                                       _GridSection(title: 'SCHOOL INFO', defaultExpanded: true, tiles: [
