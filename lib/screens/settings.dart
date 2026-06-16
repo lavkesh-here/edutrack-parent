@@ -25,13 +25,33 @@ class _State extends State<SettingsScreen> {
   String? _error;
   String? _success;
   bool _isProd = true;
+  bool _bioEnabled = false;
+  bool _bioAvailable = false;
 
   @override
   void initState() {
     super.initState();
     ParentApiClient.getBaseUrl().then((url) {
-      if (mounted) setState(() => _isProd = !url.contains('10.0.2.2'));
+      if (mounted) setState(() => _isProd = url == ParentApiClient.defaultBaseUrl);
     });
+    _loadBio();
+  }
+
+  Future<void> _loadBio() async {
+    final auth = context.read<ParentAuthProvider>();
+    final available = await auth.isBiometricAvailable;
+    final enabled = await auth.isBiometricEnabled;
+    if (mounted) setState(() { _bioAvailable = available; _bioEnabled = enabled; });
+  }
+
+  Future<void> _setBioEnabled(bool value) async {
+    final auth = context.read<ParentAuthProvider>();
+    if (!value) {
+      await auth.disableBiometric();
+      if (mounted) setState(() => _bioEnabled = false);
+    } else {
+      if (mounted) showSnack(context, 'Sign in again to enable biometric unlock');
+    }
   }
 
   @override
@@ -157,68 +177,101 @@ class _State extends State<SettingsScreen> {
 
           const SizedBox(height: 12),
 
-          // Server URL dropdown
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border, width: 1.5),
-            ),
-            child: ListTile(
-              leading: Container(
-                width: 38, height: 38,
-                decoration: BoxDecoration(color: AppColors.skyLight, borderRadius: BorderRadius.circular(10)),
-                child: const Icon(Icons.dns_outlined, color: AppColors.sky, size: 20),
+          // Biometric toggle
+          if (_bioAvailable)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border, width: 1.5),
               ),
-              title: const Text('Server', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text)),
-              subtitle: Text(_isProd ? 'Production' : 'Dev (Emulator)', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-              trailing: DropdownButton<bool>(
-                value: _isProd,
-                underline: const SizedBox(),
-                isDense: true,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.text),
-                items: const [
-                  DropdownMenuItem(value: true, child: Text('Production')),
-                  DropdownMenuItem(value: false, child: Text('Dev')),
-                ],
-                onChanged: (v) async {
-                  if (v == null) return;
-                  if (!v) {
-                    final current = await ParentApiClient.getBaseUrl();
-                    final isCurrentProd = current == ParentApiClient.defaultBaseUrl;
-                    final ctrl = TextEditingController(text: isCurrentProd ? '' : current);
-                    if (!mounted) return;
-                    final result = await showDialog<String>(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text('Dev Server URL', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('e.g. http://192.168.1.5:8000 or ngrok URL',
-                                style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                            const SizedBox(height: 12),
-                            TextField(controller: ctrl, autocorrect: false, keyboardType: TextInputType.url,
-                                decoration: const InputDecoration(hintText: 'http://192.168.x.x:8000')),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                          TextButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Save')),
-                        ],
-                      ),
-                    );
-                    if (result == null || result.isEmpty) return;
-                    setState(() => _isProd = false);
-                    await ParentApiClient.setBaseUrl(result);
-                    if (mounted) showSnack(context, 'Switched to Dev server');
-                  } else {
-                    setState(() => _isProd = true);
-                    await ParentApiClient.setBaseUrl(ParentApiClient.defaultBaseUrl);
-                    if (mounted) showSnack(context, 'Switched to Production');
-                  }
-                },
+              child: ListTile(
+                leading: Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(color: AppColors.violetLight, borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.fingerprint_rounded, color: AppColors.violet, size: 22),
+                ),
+                title: const Text('Biometric Unlock', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text)),
+                subtitle: const Text('Use Face ID or fingerprint to sign in', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                trailing: Switch(
+                  value: _bioEnabled,
+                  onChanged: _setBioEnabled,
+                  activeColor: AppColors.teal,
+                ),
+              ),
+            ),
+
+          // Server environment tile
+          GestureDetector(
+            onTap: () async {
+              if (_isProd) {
+                // Switch to Dev — prompt for URL
+                final current = await ParentApiClient.getBaseUrl();
+                final ctrl = TextEditingController(text: current == ParentApiClient.defaultBaseUrl ? '' : current);
+                if (!mounted) return;
+                final result = await showDialog<String>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Dev Server URL', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('e.g. http://192.168.1.5:8000 or ngrok URL',
+                            style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                        const SizedBox(height: 12),
+                        TextField(controller: ctrl, autocorrect: false, keyboardType: TextInputType.url,
+                            decoration: const InputDecoration(hintText: 'http://192.168.x.x:8000')),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                      TextButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Save')),
+                    ],
+                  ),
+                );
+                if (result == null || result.isEmpty) return;
+                setState(() => _isProd = false);
+                await ParentApiClient.setBaseUrl(result);
+                if (mounted) showSnack(context, 'Switched to Dev server');
+              } else {
+                setState(() => _isProd = true);
+                await ParentApiClient.setBaseUrl(ParentApiClient.defaultBaseUrl);
+                if (mounted) showSnack(context, 'Switched to Production');
+              }
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border, width: 1.5),
+              ),
+              child: ListTile(
+                leading: Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(color: AppColors.skyLight, borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.dns_outlined, color: AppColors.sky, size: 20),
+                ),
+                title: const Text('Server', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text)),
+                subtitle: Text(_isProd ? 'Tap to switch to Dev' : 'Tap to switch to Production',
+                    style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _isProd ? AppColors.tealLight : AppColors.amberLight,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _isProd ? AppColors.teal.withOpacity(0.3) : AppColors.amber.withOpacity(0.4)),
+                  ),
+                  child: Text(
+                    _isProd ? 'PRODUCTION' : 'DEV',
+                    style: TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w800,
+                      color: _isProd ? AppColors.teal : AppColors.amber,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

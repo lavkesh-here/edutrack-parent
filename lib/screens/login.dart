@@ -19,14 +19,37 @@ class _LoginScreenState extends State<LoginScreen> {
   final _codeCtrl = TextEditingController();
   bool _loading = false;
   String? _error;
-  bool _isProd = true; // true = Production, false = Dev
+  bool _isProd = true;
+  bool _bioEnabled = false;
+  bool _bioAvailable = false;
 
   @override
   void initState() {
     super.initState();
     ParentApiClient.getBaseUrl().then((url) {
-      if (mounted) setState(() => _isProd = url == ParentApiClient.defaultBaseUrl || !url.contains('10.0.2.2'));
+      if (mounted) setState(() => _isProd = url == ParentApiClient.defaultBaseUrl);
     });
+    _checkBio();
+  }
+
+  Future<void> _checkBio() async {
+    final auth = context.read<ParentAuthProvider>();
+    final available = await auth.isBiometricAvailable;
+    final enabled = await auth.isBiometricEnabled;
+    if (mounted) setState(() { _bioAvailable = available; _bioEnabled = enabled; });
+  }
+
+  Future<void> _biometricUnlock() async {
+    setState(() => _loading = true);
+    final auth = context.read<ParentAuthProvider>();
+    final err = await auth.biometricLogin();
+    if (!mounted) return;
+    if (err != null) {
+      setState(() { _error = err; _loading = false; });
+    } else {
+      setState(() => _loading = false);
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   @override
@@ -150,16 +173,27 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const Icon(Icons.dns_outlined, size: 12, color: AppColors.muted),
                   const SizedBox(width: 6),
-                  DropdownButton<bool>(
-                    value: _isProd,
-                    underline: const SizedBox(),
-                    isDense: true,
-                    style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
-                    items: const [
-                      DropdownMenuItem(value: true, child: Text('Production')),
-                      DropdownMenuItem(value: false, child: Text('Dev (Emulator)')),
-                    ],
-                    onChanged: (v) { if (v != null) _onServerSwitch(v); },
+                  GestureDetector(
+                    onTap: () => _onServerSwitch(!_isProd),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _isProd ? AppColors.tealLight : AppColors.amberLight,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _isProd ? AppColors.teal.withOpacity(0.3) : AppColors.amber.withOpacity(0.4),
+                        ),
+                      ),
+                      child: Text(
+                        _isProd ? 'PRODUCTION' : 'DEV',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: _isProd ? AppColors.teal : AppColors.amber,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -191,6 +225,35 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(fontSize: 12, color: AppColors.muted),
                     ),
                     const SizedBox(height: 16),
+                    // Biometric quick-unlock for returning users
+                    if (_bioAvailable && _bioEnabled) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: OutlinedButton.icon(
+                          onPressed: _loading ? null : _biometricUnlock,
+                          icon: const Icon(Icons.fingerprint_rounded, size: 22),
+                          label: const Text('Unlock with Biometric',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.teal,
+                            side: const BorderSide(color: AppColors.teal),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text('or sign in to a different account',
+                              style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                        ),
+                        const Expanded(child: Divider()),
+                      ]),
+                      const SizedBox(height: 16),
+                    ],
                     const Text(
                       'SCHOOL CODE',
                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5),
@@ -265,12 +328,35 @@ class _CredentialsScreenState extends State<_CredentialsScreen> {
     try {
       final deviceName = Platform.isAndroid ? 'Android Device' : Platform.isIOS ? 'iOS Device' : 'Unknown';
       final osVersion = Platform.operatingSystemVersion;
-      final mustChange = await context.read<ParentAuthProvider>().login(
+      final auth = context.read<ParentAuthProvider>();
+      final mustChange = await auth.login(
         _phoneCtrl.text.trim(),
         _passCtrl.text,
         deviceName: deviceName,
         osVersion: osVersion,
       );
+      if (!mounted) return;
+
+      // Offer biometric enrollment after first successful login
+      final canUseBio = await auth.isBiometricAvailable;
+      final alreadyEnabled = await auth.isBiometricEnabled;
+      if (canUseBio && !alreadyEnabled && mounted) {
+        final enable = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Quick unlock', style: TextStyle(fontWeight: FontWeight.w800)),
+            content: const Text('Use Face ID or fingerprint to unlock EduTrack Parent next time instead of typing your password.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Enable')),
+            ],
+          ),
+        );
+        if (enable == true) {
+          await auth.enableBiometric(_phoneCtrl.text.trim(), _passCtrl.text);
+        }
+      }
+
       if (!mounted) return;
       if (mustChange) {
         Navigator.pushReplacement(

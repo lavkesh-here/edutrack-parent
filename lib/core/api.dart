@@ -608,6 +608,21 @@ class ParentApiClient {
     await _post('/api/v1/parent/onboarding/$actionKey/seen', {});
   }
 
+  // ── Parent own profile photo ──────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getProfilePhotoUploadUrl(
+      String filename, String contentType, int fileSize) async {
+    return (await _post('/api/v1/parent/me/photo-url', {
+      'filename': filename,
+      'content_type': contentType,
+      'file_size': fileSize,
+    })) as Map<String, dynamic>;
+  }
+
+  static Future<void> saveProfilePhotoUrl(String photoUrl) async {
+    await _patch('/api/v1/parent/me/photo', {'photo_url': photoUrl});
+  }
+
   // ── Student photo (parent: always changeable) ─────────────────────────────
 
   static Future<Map<String, dynamic>> getChildPhotoUploadUrl(String studentId) async {

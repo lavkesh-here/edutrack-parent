@@ -1,20 +1,69 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../core/auth.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
+import '../widgets/common.dart';
 import 'add_child.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   final List<ChildInfo> children;
   final String parentName;
 
   const ProfileScreen({super.key, required this.children, required this.parentName});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _appVersion = '';
+  bool _uploadingPhoto = false;
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _appVersion = '${info.version}+${info.buildNumber}');
+    });
+  }
+
+  Future<void> _pickAndUploadPhoto(BuildContext context) async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 800);
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    if (bytes.lengthInBytes > 5 * 1024 * 1024) {
+      if (mounted) showSnack(context, 'Image must be under 5MB', error: true);
+      return;
+    }
+    final ext = file.path.split('.').last.toLowerCase();
+    final contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
+    setState(() => _uploadingPhoto = true);
+    try {
+      final resp = await ParentApiClient.getProfilePhotoUploadUrl(file.name, contentType, bytes.lengthInBytes);
+      final uploadUrl = resp['upload_url'] as String;
+      final photoUrl = resp['photo_url'] as String;
+      await http.put(Uri.parse(uploadUrl), headers: {'Content-Type': contentType}, body: bytes);
+      await ParentApiClient.saveProfilePhotoUrl(photoUrl);
+      if (mounted) await context.read<ParentAuthProvider>().updatePhotoUrl(photoUrl);
+      if (mounted) showSnack(context, 'Photo updated');
+    } catch (e) {
+      if (mounted) showSnack(context, 'Upload failed', error: true);
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final auth = context.watch<ParentAuthProvider>();
     final initials = auth.initials;
+    final children = widget.children;
+    final parentName = widget.parentName;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -34,15 +83,40 @@ class ProfileScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 28, 20, 22),
                 child: Column(
                   children: [
-                    Container(
-                      width: 70, height: 70,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withOpacity(0.25), width: 3),
+                    GestureDetector(
+                      onTap: () => _pickAndUploadPhoto(context),
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 70, height: 70,
+                            decoration: BoxDecoration(
+                              gradient: auth.user?.photoUrl == null
+                                  ? const LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)])
+                                  : null,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white.withOpacity(0.25), width: 3),
+                            ),
+                            child: ClipOval(
+                              child: _uploadingPhoto
+                                  ? const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : auth.user?.photoUrl != null
+                                      ? Image.network(auth.user!.photoUrl!, fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => Center(child: Text(initials,
+                                              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white))))
+                                      : Center(child: Text(initials,
+                                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white))),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 0, right: 0,
+                            child: Container(
+                              width: 22, height: 22,
+                              decoration: const BoxDecoration(color: AppColors.teal, shape: BoxShape.circle),
+                              child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                            ),
+                          ),
+                        ],
                       ),
-                      child: Center(child: Text(initials,
-                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white))),
                     ),
                     const SizedBox(height: 10),
                     Text(parentName,
@@ -162,7 +236,12 @@ class ProfileScreen extends StatelessWidget {
               ),
 
               const SizedBox(height: 32),
-              const Center(child: Text('EduTrack Parent v1.0', style: TextStyle(fontSize: 11, color: AppColors.muted))),
+              Center(
+                child: Text(
+                  _appVersion.isEmpty ? 'EduTrack Parent' : 'EduTrack Parent v$_appVersion',
+                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                ),
+              ),
               const SizedBox(height: 24),
             ],
           ),
