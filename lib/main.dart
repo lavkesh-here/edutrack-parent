@@ -137,27 +137,11 @@ class _RootState extends State<_Root> {
   }
 
   void _handleNotificationTap(RemoteMessage message) {
-    // Deep link based on notification_type in data payload
+    // Store pending navigation in auth provider; HomeScreen reads and handles it after loading children.
     final type = message.data['type'] as String? ?? '';
-    // Navigate after first frame so the widget tree is ready
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final nav = Navigator.of(context, rootNavigator: true);
-      switch (type) {
-        case 'attendance_absent':
-          nav.pushNamed('/notifications');
-          break;
-        case 'test_result':
-          nav.pushNamed('/notifications');
-          break;
-        case 'fee_reminder':
-        case 'fee_overdue':
-          nav.pushNamed('/notifications');
-          break;
-        default:
-          nav.pushNamed('/notifications');
-      }
-    });
+    final studentId = int.tryParse(message.data['student_id'] ?? '');
+    if (!mounted) return;
+    context.read<ParentAuthProvider>().setPendingNavigation(type, studentId);
   }
 
   @override

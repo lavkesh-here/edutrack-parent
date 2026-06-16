@@ -15,11 +15,25 @@ class ParentAuthProvider extends ChangeNotifier {
   ParentUser? _user;
   bool _loading = true;
   FeatureFlags _features = FeatureFlags.defaults();
+  String? _pendingNotifType;
+  int? _pendingNotifStudentId;
 
   ParentUser? get user => _user;
   bool get isLoggedIn => _user != null;
   bool get loading => _loading;
   FeatureFlags get features => _features;
+  String? get pendingNotifType => _pendingNotifType;
+  int? get pendingNotifStudentId => _pendingNotifStudentId;
+
+  void setPendingNavigation(String type, int? studentId) {
+    _pendingNotifType = type;
+    _pendingNotifStudentId = studentId;
+  }
+
+  void clearPendingNavigation() {
+    _pendingNotifType = null;
+    _pendingNotifStudentId = null;
+  }
 
   String get initials {
     if (_user == null) return '?';
@@ -45,6 +59,7 @@ class ParentAuthProvider extends ChangeNotifier {
     }
     _loading = false;
     notifyListeners();
+    if (_user != null) _loadFeatureFlags();
   }
 
   /// Returns true if user must change password

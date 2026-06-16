@@ -60,10 +60,52 @@ class _HomeScreenState extends State<HomeScreen> {
       final childList = (data['children'] as List<dynamic>? ?? [])
           .map((e) => ChildInfo.fromJson(e as Map<String, dynamic>))
           .toList();
-      if (mounted) setState(() { _children = childList; _loadingProfile = false; });
+      if (mounted) {
+        setState(() { _children = childList; _loadingProfile = false; });
+        _handlePendingNavigation();
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingProfile = false);
     }
+  }
+
+  void _handlePendingNavigation() {
+    final auth = context.read<ParentAuthProvider>();
+    final type = auth.pendingNotifType;
+    if (type == null) return;
+    final targetStudentId = auth.pendingNotifStudentId;
+    auth.clearPendingNavigation();
+
+    final child = targetStudentId != null
+        ? (_children.firstWhere((c) => c.studentId == targetStudentId, orElse: () => _children.first))
+        : _activeChild;
+    if (child == null) return;
+
+    // Switch to the matching child
+    final idx = _children.indexOf(child);
+    if (idx >= 0 && idx != _childIdx) setState(() => _childIdx = idx);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      switch (type) {
+        case 'attendance_absent':
+        case 'attendance_present':
+        case 'attendance_late':
+          setState(() => _idx = 1);
+        case 'test_result':
+        case 'test_published':
+          setState(() => _idx = 2);
+        case 'work_log':
+          setState(() => _idx = 3);
+        case 'fee_reminder':
+        case 'fee_overdue':
+          Navigator.push(context, MaterialPageRoute(builder: (_) => FeesScreen(child: child)));
+        case 'circular':
+          Navigator.push(context, MaterialPageRoute(builder: (_) => CircularsScreen(child: child)));
+        default:
+          Navigator.push(context, MaterialPageRoute(builder: (_) => NotificationsScreen(child: child)));
+      }
+    });
   }
 
   List<Widget> get _screens {
