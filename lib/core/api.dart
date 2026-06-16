@@ -632,6 +632,14 @@ class ParentApiClient {
 
   // ── Cached profile ─────────────────────────────────────────────────────────
 
+  // ── Global search ──────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> globalSearch(int studentId, String query) async {
+    final encoded = Uri.encodeComponent(query);
+    return (await _get('/api/v1/parent/search?student_id=$studentId&q=$encoded'))
+        as Map<String, dynamic>;
+  }
+
   static Future<Map<String, dynamic>> getProfileCached() async {
     const key = 'parent_profile';
     const maxAge = Duration(minutes: 5);

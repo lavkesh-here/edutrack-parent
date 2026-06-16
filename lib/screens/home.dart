@@ -23,6 +23,7 @@ import 'circulars.dart';
 import 'timetable.dart';
 import 'upcoming_tests.dart';
 import 'child_summary.dart';
+import 'search.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -613,6 +614,7 @@ class _HomeTabState extends State<_HomeTab> {
       _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight, () => _push(AttenderScreen(child: child)), 'PARENT CORNER'),
       if (flags.transport)
         _Tile('🚌', 'Transport', AppColors.coral, AppColors.coralLight, () => _push(TransportScreen(child: child)), 'OTHERS'),
+      _Tile('🔍', 'Search', AppColors.teal, AppColors.tealLight, () => _push(SearchScreen(child: child)), 'ACCOUNT'),
       _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen()), 'ACCOUNT'),
     ];
   }
@@ -698,6 +700,12 @@ class _HomeTabState extends State<_HomeTab> {
                           : null,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28),
+                    ),
+                  // Search icon
+                  if (widget.child != null)
+                    IconButton(
+                      icon: const Icon(Icons.search, color: AppColors.text2),
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(child: widget.child!))),
                     ),
                   // Notification bell
                   if (widget.child != null)
@@ -864,6 +872,7 @@ class _HomeTabState extends State<_HomeTab> {
                                       ]),
                                       const SizedBox(height: 8),
                                       _GridSection(title: 'ACCOUNT', tiles: [
+                                        _Tile('🔍', 'Search', AppColors.teal, AppColors.tealLight, () => _push(SearchScreen(child: child)), 'ACCOUNT'),
                                         _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen()), 'ACCOUNT'),
                                       ]),
                                     ],
