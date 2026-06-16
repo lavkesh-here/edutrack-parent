@@ -4,7 +4,7 @@ import '../core/theme.dart';
 import '../widgets/common.dart';
 
 class TimetableScreen extends StatefulWidget {
-  final int studentId;
+  final String studentId;
   const TimetableScreen({super.key, required this.studentId});
 
   @override

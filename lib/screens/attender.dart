@@ -125,7 +125,7 @@ class _State extends State<AttenderScreen> {
     );
   }
 
-  Future<void> _uploadPhoto(int attenderId) async {
+  Future<void> _uploadPhoto(String attenderId) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, imageQuality: 80);
     if (picked == null) return;
@@ -235,7 +235,7 @@ class _State extends State<AttenderScreen> {
                         ..._attenders.map((a) => _AttenderTile(
                           attender: a,
                           onDelete: () => _confirmDelete(context, a),
-                          onPhotoTap: () => _uploadPhoto(a['id'] as int),
+                          onPhotoTap: () => _uploadPhoto(a['id'].toString()),
                         )),
                       ],
                     ],
@@ -260,7 +260,7 @@ class _State extends State<AttenderScreen> {
         ],
       ),
     );
-    if (confirmed == true) _delete(a['id'] as int);
+    if (confirmed == true) _delete(a['id'].toString());
   }
 }
 

@@ -56,7 +56,7 @@ class _State extends State<NotificationsScreen> {
     }
   }
 
-  Future<void> _markRead(int notifId) async {
+  Future<void> _markRead(String notifId) async {
     try {
       await ParentApiClient.markInboxRead(notifId);
       setState(() {
@@ -88,7 +88,7 @@ class _State extends State<NotificationsScreen> {
         // general or unknown — mark read in-place only
         break;
     }
-    final id = notif['id'] as int;
+    final id = notif['id'].toString();
     if (!(notif['is_read'] as bool? ?? false)) _markRead(id);
   }
 
@@ -152,7 +152,7 @@ class _State extends State<NotificationsScreen> {
                       if (_inbox.isNotEmpty) ...[
                         const _SectionLabel('ALERTS'),
                         ..._inbox.map((n) {
-                          final id = n['id'] as int;
+                          final id = n['id'].toString();
                           final title = n['title'] as String? ?? '';
                           final body = n['body'] as String? ?? '';
                           final type = n['notification_type'] as String? ?? '';

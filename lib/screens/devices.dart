@@ -63,7 +63,7 @@ class _State extends State<DevicesScreen> {
                         padding: const EdgeInsets.all(16),
                         children: [
                           const SectionHeader('ACTIVE SESSIONS'),
-                          ..._sessions.map((s) => _DeviceTile(session: s, onRemove: () => _remove(s['id'] as int))),
+                          ..._sessions.map((s) => _DeviceTile(session: s, onRemove: () => _remove(s['id'].toString()))),
                         ],
                       ),
                     ),

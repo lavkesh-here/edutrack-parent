@@ -31,9 +31,7 @@ class _State extends State<ForceChangePasswordScreen> {
     if (_newCtrl.text.length > 128) { setState(() => _error = 'Password must be at most 128 characters'); return; }
     setState(() { _loading = true; _error = null; });
     try {
-      final auth = context.read<ParentAuthProvider>();
       await ParentApiClient.changePassword(
-        parentId: auth.user!.parentId,
         currentPassword: _currentCtrl.text,
         newPassword: _newCtrl.text,
       );

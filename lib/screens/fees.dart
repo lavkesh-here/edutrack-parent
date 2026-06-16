@@ -174,10 +174,10 @@ class _BodyState extends State<_Body> {
                 const SectionHeader('REGULAR FEES'),
                 ..._regular.map((item) => _InstallmentTile(
                   item: item,
-                  selected: _selected.contains(item['id'] as int),
+                  selected: _selected.contains(item['id'].toString()),
                   onToggle: item['status'] == 'unpaid' || item['status'] == 'overdue'
                       ? () => setState(() {
-                            final id = item['id'] as int;
+                            final id = item['id'].toString();
                             if (_selected.contains(id)) _selected.remove(id); else _selected.add(id);
                           })
                       : null,
@@ -190,10 +190,10 @@ class _BodyState extends State<_Body> {
                 const SectionHeader('MISC FEES'),
                 ..._misc.map((item) => _InstallmentTile(
                   item: item,
-                  selected: _selected.contains(item['id'] as int),
+                  selected: _selected.contains(item['id'].toString()),
                   onToggle: item['status'] == 'unpaid' || item['status'] == 'overdue'
                       ? () => setState(() {
-                            final id = item['id'] as int;
+                            final id = item['id'].toString();
                             if (_selected.contains(id)) _selected.remove(id); else _selected.add(id);
                           })
                       : null,

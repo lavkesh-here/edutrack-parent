@@ -6,7 +6,7 @@ import 'features.dart';
 
 class ParentUser {
   final String parentName;
-  final int parentId;
+  final String parentId;
 
   const ParentUser({required this.parentName, required this.parentId});
 }
@@ -16,7 +16,7 @@ class ParentAuthProvider extends ChangeNotifier {
   bool _loading = true;
   FeatureFlags _features = FeatureFlags.defaults();
   String? _pendingNotifType;
-  int? _pendingNotifStudentId;
+  String? _pendingNotifStudentId;
 
   ParentUser? get user => _user;
   bool get isLoggedIn => _user != null;
@@ -25,7 +25,7 @@ class ParentAuthProvider extends ChangeNotifier {
   String? get pendingNotifType => _pendingNotifType;
   int? get pendingNotifStudentId => _pendingNotifStudentId;
 
-  void setPendingNavigation(String type, int? studentId) {
+  void setPendingNavigation(String type, String? studentId) {
     _pendingNotifType = type;
     _pendingNotifStudentId = studentId;
   }
@@ -52,7 +52,7 @@ class ParentAuthProvider extends ChangeNotifier {
     final token = await ParentApiClient.getToken();
     if (token != null) {
       final name = prefs.getString('parent_name') ?? '';
-      final id = prefs.getInt('parent_id') ?? 0;
+      final id = prefs.getString('parent_id') ?? 0;
       if (name.isNotEmpty) {
         _user = ParentUser(parentName: name, parentId: id);
       }
@@ -68,7 +68,7 @@ class ParentAuthProvider extends ChangeNotifier {
     await ParentApiClient.setToken(res.token);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('parent_name', res.parentName);
-    await prefs.setInt('parent_id', res.parentId);
+    await prefs.setString('parent_id', res.parentId);
     _user = ParentUser(parentName: res.parentName, parentId: res.parentId);
     _loadFeatureFlags();
     notifyListeners();

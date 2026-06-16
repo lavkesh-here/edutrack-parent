@@ -51,13 +51,9 @@ class _State extends State<SettingsScreen> {
       setState(() => _error = 'Password must be at least 6 characters');
       return;
     }
-    final parentId = context.read<ParentAuthProvider>().user?.parentId;
-    if (parentId == null) return;
-
     setState(() { _saving = true; _error = null; _success = null; });
     try {
       await ParentApiClient.changePassword(
-        parentId: parentId,
         currentPassword: _currentCtrl.text,
         newPassword: _newCtrl.text,
       );
