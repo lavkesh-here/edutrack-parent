@@ -23,7 +23,7 @@ class _State extends State<SchoolContactsScreen> {
   }
 
   Future<void> _load() async {
-    final seen = <int>{};
+    final seen = <String>{};
     final results = <Map<String, dynamic>>[];
     for (final c in widget.children) {
       if (seen.contains(c.schoolId)) continue;

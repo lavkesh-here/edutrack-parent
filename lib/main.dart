@@ -139,7 +139,7 @@ class _RootState extends State<_Root> {
   void _handleNotificationTap(RemoteMessage message) {
     // Store pending navigation in auth provider; HomeScreen reads and handles it after loading children.
     final type = message.data['type'] as String? ?? '';
-    final studentId = int.tryParse(message.data['student_id'] ?? '');
+    final studentId = message.data['student_id'] as String?;
     if (!mounted) return;
     context.read<ParentAuthProvider>().setPendingNavigation(type, studentId);
   }

@@ -83,7 +83,7 @@ class _Body extends StatefulWidget {
 }
 
 class _BodyState extends State<_Body> {
-  final Set<int> _selected = {};
+  final Set<String> _selected = {};
 
   List<Map<String, dynamic>> get _regular => _filterType('regular');
   List<Map<String, dynamic>> get _misc => _filterType('misc');

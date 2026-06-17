@@ -33,7 +33,7 @@ class _State extends State<DevicesScreen> {
     }
   }
 
-  Future<void> _remove(int id) async {
+  Future<void> _remove(String id) async {
     try {
       await ParentApiClient.removeDevice(id);
       setState(() => _sessions.removeWhere((s) => s['id'] == id));

@@ -38,7 +38,7 @@ class _State extends State<AttenderScreen> {
     }
   }
 
-  Future<void> _delete(int id) async {
+  Future<void> _delete(String id) async {
     try {
       await ParentApiClient.deleteAttender(widget.child.studentId, id);
       setState(() => _attenders.removeWhere((a) => a['id'] == id));

@@ -217,7 +217,7 @@ class WorkLogItem {
         sectionLabel: j['section_label'] as String?,
         subjectName: j['subject_name'] as String?,
         teacherName: j['teacher_name'] as String?,
-        submissionId: j['submission_id'].toString()?,
+        submissionId: j['submission_id']?.toString(),
         ackStatus: j['ack_status'] as String? ?? 'pending',
         parentNote: j['parent_note'] as String?,
       );
