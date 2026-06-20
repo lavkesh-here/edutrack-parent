@@ -5,7 +5,8 @@ import '../widgets/common.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final ChildInfo? child;
-  const AttendanceScreen({super.key, this.child});
+  final DateTime? initialDate;
+  const AttendanceScreen({super.key, this.child, this.initialDate});
 
   @override
   State<AttendanceScreen> createState() => _AttendanceScreenState();
@@ -14,19 +15,27 @@ class AttendanceScreen extends StatefulWidget {
 class _AttendanceScreenState extends State<AttendanceScreen> {
   AttendanceSummary? _data;
   bool _loading = true;
-  int _month = DateTime.now().month;
-  int _year = DateTime.now().year;
+  late int _month;
+  late int _year;
 
   @override
   void initState() {
     super.initState();
+    final d = widget.initialDate ?? DateTime.now();
+    _month = d.month;
+    _year = d.year;
     _load();
   }
 
   @override
   void didUpdateWidget(AttendanceScreen old) {
     super.didUpdateWidget(old);
-    if (old.child?.studentId != widget.child?.studentId) _load();
+    if (old.child?.studentId != widget.child?.studentId) { _load(); return; }
+    final nd = widget.initialDate;
+    if (nd != null && nd != old.initialDate) {
+      setState(() { _month = nd.month; _year = nd.year; });
+      _load();
+    }
   }
 
   Future<void> _load() async {

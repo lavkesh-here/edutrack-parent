@@ -25,6 +25,7 @@ class ParentAuthProvider extends ChangeNotifier {
   FeatureFlags _features = FeatureFlags.defaults();
   String? _pendingNotifType;
   String? _pendingNotifStudentId;
+  String? _pendingNotifDate;
 
   // ── Biometric ─────────────────────────────────────────────────────────────
   final _localAuth = LocalAuthentication();
@@ -74,16 +75,22 @@ class ParentAuthProvider extends ChangeNotifier {
   FeatureFlags get features => _features;
   String? get pendingNotifType => _pendingNotifType;
   String? get pendingNotifStudentId => _pendingNotifStudentId;
+  String? get pendingNotifDate => _pendingNotifDate;
 
-  void setPendingNavigation(String type, String? studentId) {
+  void setPendingNavigation(String type, String? studentId, {String? date}) {
     _pendingNotifType = type;
     _pendingNotifStudentId = studentId;
+    _pendingNotifDate = date;
   }
 
   void clearPendingNavigation() {
     _pendingNotifType = null;
     _pendingNotifStudentId = null;
+    _pendingNotifDate = null;
   }
+
+  Future<String?> getStoredPhone() async =>
+      (await SharedPreferences.getInstance()).getString('parent_phone');
 
   String get initials {
     if (_user == null) return '?';
@@ -123,6 +130,7 @@ class ParentAuthProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('parent_name', res.parentName);
     await prefs.setString('parent_id', res.parentId);
+    await prefs.setString('parent_phone', phone);
     _user = ParentUser(parentName: res.parentName, parentId: res.parentId);
     _loadFeatureFlags();
     notifyListeners();

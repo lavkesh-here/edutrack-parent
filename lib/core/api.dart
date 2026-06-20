@@ -508,13 +508,22 @@ class ParentApiClient {
     await _post('/api/v1/parent/child/$studentId/attenders', {'name': name, 'phone': phone, 'relation': relation});
   }
 
-  static Future<Map<String, dynamic>> getAttenderUploadUrl(String studentId) async {
-    final data = await _post('/api/v1/parent/child/$studentId/attenders/upload-url', {});
+  static Future<Map<String, dynamic>> getAttenderUploadUrl(
+    String studentId, {
+    required String filename,
+    required String contentType,
+    required int fileSize,
+  }) async {
+    final data = await _post('/api/v1/parent/child/$studentId/attenders/upload-url', {
+      'filename': filename,
+      'content_type': contentType,
+      'file_size': fileSize,
+    });
     return data as Map<String, dynamic>;
   }
 
-  static Future<void> updateAttenderPhoto(String studentId, String attenderId, String photoUrl) async {
-    await _patch('/api/v1/parent/child/$studentId/attenders/$attenderId/photo', {'photo_url': photoUrl});
+  static Future<void> updateAttenderPhoto(String studentId, String attenderId, String gcsUrl) async {
+    await _patch('/api/v1/parent/child/$studentId/attenders/$attenderId/photo', {'gcs_url': gcsUrl});
   }
 
   static Future<void> deleteAttender(String studentId, String attenderId) async {
@@ -625,8 +634,17 @@ class ParentApiClient {
 
   // ── Student photo (parent: always changeable) ─────────────────────────────
 
-  static Future<Map<String, dynamic>> getChildPhotoUploadUrl(String studentId) async {
-    return (await _post('/api/v1/parent/child/$studentId/photo/upload-url', {})) as Map<String, dynamic>;
+  static Future<Map<String, dynamic>> getChildPhotoUploadUrl(
+    String studentId, {
+    required String filename,
+    required String contentType,
+    required int fileSize,
+  }) async {
+    return (await _post('/api/v1/parent/child/$studentId/photo/upload-url', {
+      'filename': filename,
+      'content_type': contentType,
+      'file_size': fileSize,
+    })) as Map<String, dynamic>;
   }
 
   static Future<void> saveChildPhoto(String studentId, String photoUrl) async {

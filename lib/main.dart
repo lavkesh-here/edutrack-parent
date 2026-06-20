@@ -140,8 +140,9 @@ class _RootState extends State<_Root> {
     // Store pending navigation in auth provider; HomeScreen reads and handles it after loading children.
     final type = message.data['type'] as String? ?? '';
     final studentId = message.data['student_id'] as String?;
+    final date = message.data['date'] as String?;
     if (!mounted) return;
-    context.read<ParentAuthProvider>().setPendingNavigation(type, studentId);
+    context.read<ParentAuthProvider>().setPendingNavigation(type, studentId, date: date);
   }
 
   @override

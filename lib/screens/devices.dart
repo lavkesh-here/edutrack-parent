@@ -15,6 +15,17 @@ class _State extends State<DevicesScreen> {
   bool _loading = true;
   String? _error;
 
+  List<Map<String, dynamic>> get _uniqueDevices {
+    final sorted = List<Map<String, dynamic>>.from(_sessions)
+      ..sort((a, b) {
+        final ta = DateTime.tryParse(a['last_active']?.toString() ?? '') ?? DateTime(0);
+        final tb = DateTime.tryParse(b['last_active']?.toString() ?? '') ?? DateTime(0);
+        return tb.compareTo(ta);
+      });
+    final seen = <String>{};
+    return sorted.where((s) => seen.add(s['device_name']?.toString() ?? 'Unknown')).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -62,8 +73,8 @@ class _State extends State<DevicesScreen> {
                       child: ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
-                          const SectionHeader('ACTIVE SESSIONS'),
-                          ..._sessions.map((s) => _DeviceTile(session: s, onRemove: () => _remove(s['id'].toString()))),
+                          const SectionHeader('LOGGED-IN DEVICES'),
+                          ..._uniqueDevices.map((s) => _DeviceTile(session: s, onRemove: () => _remove(s['id'].toString()))),
                         ],
                       ),
                     ),

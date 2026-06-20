@@ -109,50 +109,50 @@ class _State extends State<AddChildScreen> {
                   ],
                 ),
               ),
-            ],
-            const SizedBox(height: 16),
-            const Text('ADMISSION NUMBER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _admCtrl,
-              maxLength: 50,
-              decoration: const InputDecoration(hintText: 'Student admission number', counterText: ''),
-            ),
-            const SizedBox(height: 16),
-            const Text('YOUR PASSWORD (CONFIRM)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _passCtrl,
-              obscureText: _obscure,
-              maxLength: 128,
-              decoration: InputDecoration(
-                hintText: 'Re-enter your password',
-                counterText: '',
-                suffixIcon: GestureDetector(
-                  onTap: () => setState(() => _obscure = !_obscure),
-                  child: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.muted, size: 18),
+              const SizedBox(height: 16),
+              const Text('ADMISSION NUMBER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _admCtrl,
+                maxLength: 50,
+                decoration: const InputDecoration(hintText: 'Student admission number', counterText: ''),
+              ),
+              const SizedBox(height: 16),
+              const Text('YOUR PASSWORD (CONFIRM)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _passCtrl,
+                obscureText: _obscure,
+                maxLength: 128,
+                decoration: InputDecoration(
+                  hintText: 'Re-enter your password',
+                  counterText: '',
+                  suffixIcon: GestureDetector(
+                    onTap: () => setState(() => _obscure = !_obscure),
+                    child: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: AppColors.muted, size: 18),
+                  ),
                 ),
               ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: AppColors.coralLight, borderRadius: BorderRadius.circular(10)),
-                child: Text(_error!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFBE123C))),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: AppColors.coralLight, borderRadius: BorderRadius.circular(10)),
+                  child: Text(_error!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFBE123C))),
+                ),
+              ],
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _submit,
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal),
+                  child: _saving
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                      : const Text('Link Child'),
+                ),
               ),
             ],
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _saving ? null : _submit,
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal),
-                child: _saving
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                    : const Text('Link Child'),
-              ),
-            ),
           ],
         ),
       ),

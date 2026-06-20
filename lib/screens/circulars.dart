@@ -14,6 +14,7 @@ class CircularsScreen extends StatefulWidget {
 class _State extends State<CircularsScreen> {
   List<Map<String, dynamic>>? _circulars;
   bool _loading = true;
+  int? _openIdx;
 
   @override
   void initState() {
@@ -24,7 +25,7 @@ class _State extends State<CircularsScreen> {
   Future<void> _load() async {
     try {
       final data = await ParentApiClient.getCirculars(widget.child.studentId);
-      if (mounted) setState(() { _circulars = data; _loading = false; });
+      if (mounted) setState(() { _circulars = data; _loading = false; _openIdx = null; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -66,39 +67,38 @@ class _State extends State<CircularsScreen> {
                     padding: const EdgeInsets.all(16),
                     itemCount: _circulars!.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => _CircularCard(data: _circulars![i]),
+                    itemBuilder: (_, i) => _CircularCard(
+                      data: _circulars![i],
+                      isOpen: _openIdx == i,
+                      onToggle: () => setState(() => _openIdx = _openIdx == i ? null : i),
+                    ),
                   ),
                 ),
     );
   }
 }
 
-class _CircularCard extends StatefulWidget {
+class _CircularCard extends StatelessWidget {
   final Map<String, dynamic> data;
-  const _CircularCard({required this.data});
-
-  @override
-  State<_CircularCard> createState() => _CircularCardState();
-}
-
-class _CircularCardState extends State<_CircularCard> {
-  bool _expanded = false;
+  final bool isOpen;
+  final VoidCallback onToggle;
+  const _CircularCard({required this.data, required this.isOpen, required this.onToggle});
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.data['title'] as String? ?? '';
-    final body = widget.data['body'] as String? ?? '';
-    final attachmentUrl = widget.data['attachment_url'] as String?;
-    final createdAt = (widget.data['created_at'] as String? ?? '').split('T').first;
+    final title = data['title'] as String? ?? '';
+    final body = data['body'] as String? ?? '';
+    final attachmentUrl = data['attachment_url'] as String?;
+    final createdAt = (data['created_at'] as String? ?? '').split('T').first;
     final hasBody = body.isNotEmpty;
 
     return GestureDetector(
-      onTap: hasBody ? () => setState(() => _expanded = !_expanded) : null,
+      onTap: hasBody ? onToggle : null,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border, width: 1.5),
+          border: Border.all(color: isOpen ? AppColors.teal.withOpacity(0.4) : AppColors.border, width: 1.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,7 +110,10 @@ class _CircularCardState extends State<_CircularCard> {
                 children: [
                   Container(
                     width: 38, height: 38,
-                    decoration: BoxDecoration(color: AppColors.tealLight, borderRadius: BorderRadius.circular(10)),
+                    decoration: BoxDecoration(
+                      color: isOpen ? AppColors.teal.withOpacity(0.12) : AppColors.tealLight,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     child: const Center(child: Text('📋', style: TextStyle(fontSize: 18))),
                   ),
                   const SizedBox(width: 12),
@@ -127,12 +130,12 @@ class _CircularCardState extends State<_CircularCard> {
                     ),
                   ),
                   if (hasBody)
-                    Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+                    Icon(isOpen ? Icons.expand_less : Icons.expand_more,
                         size: 18, color: AppColors.muted),
                 ],
               ),
             ),
-            if (_expanded && hasBody)
+            if (isOpen && hasBody)
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                 child: Column(

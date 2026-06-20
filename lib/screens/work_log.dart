@@ -5,7 +5,8 @@ import '../widgets/common.dart';
 
 class WorkLogScreen extends StatefulWidget {
   final ChildInfo? child;
-  const WorkLogScreen({super.key, this.child});
+  final DateTime? initialDate;
+  const WorkLogScreen({super.key, this.child, this.initialDate});
 
   @override
   State<WorkLogScreen> createState() => _WorkLogScreenState();
@@ -20,13 +21,27 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
   @override
   void initState() {
     super.initState();
+    _applyInitialDate();
     _load();
+  }
+
+  void _applyInitialDate() {
+    final d = widget.initialDate;
+    if (d == null) return;
+    final daysAgo = DateTime.now().difference(d).inDays;
+    if (daysAgo > 30) _days = daysAgo > 60 ? 90 : 30;
   }
 
   @override
   void didUpdateWidget(WorkLogScreen old) {
     super.didUpdateWidget(old);
-    if (old.child?.studentId != widget.child?.studentId) _load();
+    if (old.child?.studentId != widget.child?.studentId) { _load(); return; }
+    final nd = widget.initialDate;
+    if (nd != null && nd != old.initialDate) {
+      setState(() { _filter = 'all'; });
+      _applyInitialDate();
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -39,6 +54,11 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
     } catch (_) {
       setState(() => _loading = false);
     }
+  }
+
+  Future<void> _refresh() async {
+    setState(() { _filter = 'all'; _days = 30; });
+    await _load();
   }
 
   List<WorkLogDate> get _filtered {
@@ -134,7 +154,7 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
                         ))
                       : RefreshIndicator(
                           color: AppColors.teal,
-                          onRefresh: _load,
+                          onRefresh: _refresh,
                           child: ListView.builder(
                             padding: const EdgeInsets.only(bottom: 24),
                             itemCount: _filtered.length,

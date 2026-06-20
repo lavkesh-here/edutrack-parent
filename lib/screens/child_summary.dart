@@ -80,10 +80,16 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
     final contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
     setState(() => _uploading = true);
     try {
-      final resp = await ParentApiClient.getChildPhotoUploadUrl(widget.child.studentId);
+      final resp = await ParentApiClient.getChildPhotoUploadUrl(
+        widget.child.studentId,
+        filename: file.name,
+        contentType: contentType,
+        fileSize: bytes.lengthInBytes,
+      );
       final uploadUrl = resp['upload_url'] as String;
       final photoUrl = resp['photo_url'] as String;
-      await http.put(Uri.parse(uploadUrl), headers: {'Content-Type': contentType}, body: bytes);
+      final res = await http.put(Uri.parse(uploadUrl), headers: {'Content-Type': contentType}, body: bytes);
+      if (res.statusCode >= 300) throw Exception('Upload failed (${res.statusCode})');
       await ParentApiClient.saveChildPhoto(widget.child.studentId, photoUrl);
       setState(() => _photoUrl = photoUrl);
       widget.onPhotoUpdated?.call(photoUrl);

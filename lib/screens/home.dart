@@ -34,12 +34,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _homeTabKey = GlobalKey<_HomeTabState>();
   late final PageController _childPageCtrl = PageController();
   int _idx = 0;
   List<ChildInfo> _children = [];
   int _childIdx = 0;
   bool _loadingProfile = true;
   DateTime? _lastBackPress;
+  DateTime? _notifDate;
 
   ChildInfo? get _activeChild => _children.isNotEmpty ? _children[_childIdx] : null;
 
@@ -75,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final type = auth.pendingNotifType;
     if (type == null) return;
     final targetStudentId = auth.pendingNotifStudentId;
+    final dateStr = auth.pendingNotifDate;
     auth.clearPendingNavigation();
 
     final child = targetStudentId != null
@@ -82,9 +85,11 @@ class _HomeScreenState extends State<HomeScreen> {
         : _activeChild;
     if (child == null) return;
 
-    // Switch to the matching child
     final idx = _children.indexOf(child);
     if (idx >= 0 && idx != _childIdx) setState(() => _childIdx = idx);
+
+    DateTime? parsedDate;
+    if (dateStr != null) parsedDate = DateTime.tryParse(dateStr);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -92,12 +97,12 @@ class _HomeScreenState extends State<HomeScreen> {
         case 'attendance_absent':
         case 'attendance_present':
         case 'attendance_late':
-          setState(() => _idx = 1);
+          setState(() { _idx = 1; _notifDate = parsedDate; });
         case 'test_result':
         case 'test_published':
           setState(() => _idx = 2);
         case 'work_log':
-          setState(() => _idx = 3);
+          setState(() { _idx = 3; _notifDate = parsedDate; });
         case 'fee_reminder':
         case 'fee_overdue':
           Navigator.push(context, MaterialPageRoute(builder: (_) => FeesScreen(child: child)));
@@ -113,6 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final child = _activeChild;
     return [
       _HomeTab(
+        key: _homeTabKey,
         child: child,
         children: _children,
         childIdx: _childIdx,
@@ -125,9 +131,9 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }),
       ),
-      AttendanceScreen(child: child),
+      AttendanceScreen(child: child, initialDate: _notifDate),
       TestsScreen(child: child),
-      WorkLogScreen(child: child),
+      WorkLogScreen(child: child, initialDate: _notifDate),
       ProfileScreen(children: _children, parentName: context.read<ParentAuthProvider>().user?.parentName ?? ''),
     ];
   }
@@ -140,6 +146,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return PopScope(
       canPop: false,
       onPopInvoked: (_) {
+        // Clear search if active
+        final tabState = _homeTabKey.currentState;
+        if (tabState != null && tabState._search.isNotEmpty) {
+          tabState._clearSearch();
+          return;
+        }
         if (_idx != 0) { setState(() => _idx = 0); return; }
         final now = DateTime.now();
         if (_lastBackPress == null || now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
@@ -426,6 +438,7 @@ class _HomeTab extends StatefulWidget {
   final void Function(String url)? onPhotoUpdated;
 
   const _HomeTab({
+    super.key,
     this.child,
     required this.children,
     required this.childIdx,
@@ -446,6 +459,12 @@ class _HomeTabState extends State<_HomeTab> {
   int _unreadCount = 0;
   String _search = '';
   final _searchCtrl = TextEditingController();
+  String? _openSection;
+
+  void _clearSearch() {
+    _searchCtrl.clear();
+    setState(() => _search = '');
+  }
 
   @override
   void dispose() {
@@ -701,12 +720,6 @@ class _HomeTabState extends State<_HomeTab> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28),
                     ),
-                  // Search icon
-                  if (widget.child != null)
-                    IconButton(
-                      icon: const Icon(Icons.search, color: AppColors.text2),
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(child: widget.child!))),
-                    ),
                   // Notification bell
                   if (widget.child != null)
                     Stack(
@@ -767,15 +780,17 @@ class _HomeTabState extends State<_HomeTab> {
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: TextField(
                                   controller: _searchCtrl,
+                                  maxLength: 10,
                                   onChanged: (v) => setState(() => _search = v),
                                   decoration: InputDecoration(
                                     hintText: 'Search features...',
                                     hintStyle: const TextStyle(fontSize: 13, color: AppColors.muted),
+                                    counterText: '',
                                     prefixIcon: const Icon(Icons.search, color: AppColors.muted, size: 20),
                                     suffixIcon: _search.isNotEmpty
                                         ? IconButton(
                                             icon: const Icon(Icons.close, size: 18, color: AppColors.muted),
-                                            onPressed: () { _searchCtrl.clear(); setState(() => _search = ''); },
+                                            onPressed: _clearSearch,
                                           )
                                         : null,
                                     filled: true,
@@ -844,37 +859,61 @@ class _HomeTabState extends State<_HomeTab> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      _GridSection(title: 'ACADEMICS', defaultExpanded: true, tiles: [
-                                        _Tile('📋', 'Attendance', AppColors.teal, AppColors.tealLight, () => widget.onSwitchTab(1), 'ACADEMICS'),
-                                        _Tile('📊', 'Results', AppColors.violet, AppColors.violetLight, () => widget.onSwitchTab(2), 'ACADEMICS'),
-                                        _Tile('📅', 'Upcoming Tests', AppColors.sky, AppColors.skyLight, () => _push(UpcomingTestsScreen(child: child)), 'ACADEMICS'),
-                                        _Tile('📚', 'Work Log', AppColors.sun, AppColors.sunLight, () => widget.onSwitchTab(3), 'ACADEMICS'),
-                                      ]),
+                                      _GridSection(
+                                        title: 'ACADEMICS',
+                                        expanded: _openSection == 'ACADEMICS',
+                                        onToggle: () => setState(() => _openSection = _openSection == 'ACADEMICS' ? null : 'ACADEMICS'),
+                                        tiles: [
+                                          _Tile('📋', 'Attendance', AppColors.teal, AppColors.tealLight, () => widget.onSwitchTab(1), 'ACADEMICS'),
+                                          _Tile('📊', 'Results', AppColors.violet, AppColors.violetLight, () => widget.onSwitchTab(2), 'ACADEMICS'),
+                                          _Tile('📅', 'Upcoming Tests', AppColors.sky, AppColors.skyLight, () => _push(UpcomingTestsScreen(child: child)), 'ACADEMICS'),
+                                          _Tile('📚', 'Work Log', AppColors.sun, AppColors.sunLight, () => widget.onSwitchTab(3), 'ACADEMICS'),
+                                        ]),
                                       const SizedBox(height: 8),
-                                      _GridSection(title: 'COMMUNICATION', defaultExpanded: true, tiles: [
-                                        _Tile('🔔', 'Notifications', AppColors.sky, AppColors.skyLight, () => _push(NotificationsScreen(child: child)), 'COMMUNICATION'),
-                                        _Tile('📋', 'Circulars', AppColors.teal, AppColors.tealLight, () => _push(CircularsScreen(child: child)), 'COMMUNICATION'),
-                                      ]),
+                                      _GridSection(
+                                        title: 'COMMUNICATION',
+                                        expanded: _openSection == 'COMMUNICATION',
+                                        onToggle: () => setState(() => _openSection = _openSection == 'COMMUNICATION' ? null : 'COMMUNICATION'),
+                                        tiles: [
+                                          _Tile('🔔', 'Notifications', AppColors.sky, AppColors.skyLight, () => _push(NotificationsScreen(child: child)), 'COMMUNICATION'),
+                                          _Tile('📋', 'Circulars', AppColors.teal, AppColors.tealLight, () => _push(CircularsScreen(child: child)), 'COMMUNICATION'),
+                                        ]),
                                       const SizedBox(height: 8),
-                                      _GridSection(title: 'SCHOOL INFO', defaultExpanded: true, tiles: [
-                                        _Tile('🏫', 'School Contacts', AppColors.teal, AppColors.tealLight, () => _push(SchoolContactsScreen(children: widget.children)), 'SCHOOL INFO'),
-                                        _Tile('🎓', 'Student Profile', AppColors.violet, AppColors.violetLight, () => _push(StudentProfileScreen(child: child)), 'SCHOOL INFO'),
-                                        _Tile('👩‍🏫', 'Teachers', AppColors.sky, AppColors.skyLight, () => _push(TeachersScreen(child: child)), 'SCHOOL INFO'),
-                                      ]),
+                                      _GridSection(
+                                        title: 'SCHOOL INFO',
+                                        expanded: _openSection == 'SCHOOL INFO',
+                                        onToggle: () => setState(() => _openSection = _openSection == 'SCHOOL INFO' ? null : 'SCHOOL INFO'),
+                                        tiles: [
+                                          _Tile('🏫', 'School Contacts', AppColors.teal, AppColors.tealLight, () => _push(SchoolContactsScreen(children: widget.children)), 'SCHOOL INFO'),
+                                          _Tile('🎓', 'Student Profile', AppColors.violet, AppColors.violetLight, () => _push(StudentProfileScreen(child: child)), 'SCHOOL INFO'),
+                                          _Tile('👩‍🏫', 'Teachers', AppColors.sky, AppColors.skyLight, () => _push(TeachersScreen(child: child)), 'SCHOOL INFO'),
+                                        ]),
                                       const SizedBox(height: 8),
-                                      _GridSection(title: 'PARENT CORNER', tiles: [
-                                        _Tile('💰', 'Fees', AppColors.sun, AppColors.sunLight, () => _push(FeesScreen(child: child)), 'PARENT CORNER'),
-                                        _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight, () => _push(AttenderScreen(child: child)), 'PARENT CORNER'),
-                                      ]),
+                                      _GridSection(
+                                        title: 'PARENT CORNER',
+                                        expanded: _openSection == 'PARENT CORNER',
+                                        onToggle: () => setState(() => _openSection = _openSection == 'PARENT CORNER' ? null : 'PARENT CORNER'),
+                                        tiles: [
+                                          _Tile('💰', 'Fees', AppColors.sun, AppColors.sunLight, () => _push(FeesScreen(child: child)), 'PARENT CORNER'),
+                                          _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight, () => _push(AttenderScreen(child: child)), 'PARENT CORNER'),
+                                        ]),
                                       const SizedBox(height: 8),
-                                      _GridSection(title: 'OTHERS', tiles: [
-                                        _Tile('🚌', 'Transport', AppColors.coral, AppColors.coralLight, () => _push(TransportScreen(child: child)), 'OTHERS'),
-                                      ]),
+                                      _GridSection(
+                                        title: 'OTHERS',
+                                        expanded: _openSection == 'OTHERS',
+                                        onToggle: () => setState(() => _openSection = _openSection == 'OTHERS' ? null : 'OTHERS'),
+                                        tiles: [
+                                          _Tile('🚌', 'Transport', AppColors.coral, AppColors.coralLight, () => _push(TransportScreen(child: child)), 'OTHERS'),
+                                        ]),
                                       const SizedBox(height: 8),
-                                      _GridSection(title: 'ACCOUNT', tiles: [
-                                        _Tile('🔍', 'Search', AppColors.teal, AppColors.tealLight, () => _push(SearchScreen(child: child)), 'ACCOUNT'),
-                                        _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen()), 'ACCOUNT'),
-                                      ]),
+                                      _GridSection(
+                                        title: 'ACCOUNT',
+                                        expanded: _openSection == 'ACCOUNT',
+                                        onToggle: () => setState(() => _openSection = _openSection == 'ACCOUNT' ? null : 'ACCOUNT'),
+                                        tiles: [
+                                          _Tile('🔍', 'Search', AppColors.teal, AppColors.tealLight, () => _push(SearchScreen(child: child)), 'ACCOUNT'),
+                                          _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen()), 'ACCOUNT'),
+                                        ]),
                                     ],
                                   ),
                                 ),
@@ -905,38 +944,26 @@ class _Tile {
   const _Tile(this.emoji, this.label, this.color, this.bg, this.onTap, [this.section = '']);
 }
 
-class _GridSection extends StatefulWidget {
+class _GridSection extends StatelessWidget {
   final String title;
   final List<_Tile> tiles;
-  final bool defaultExpanded;
-  const _GridSection({required this.title, required this.tiles, this.defaultExpanded = false});
-
-  @override
-  State<_GridSection> createState() => _GridSectionState();
-}
-
-class _GridSectionState extends State<_GridSection> {
-  late bool _expanded;
-
-  @override
-  void initState() {
-    super.initState();
-    _expanded = widget.defaultExpanded;
-  }
+  final bool expanded;
+  final VoidCallback onToggle;
+  const _GridSection({required this.title, required this.tiles, required this.expanded, required this.onToggle});
 
   @override
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
-            onTap: () => setState(() => _expanded = !_expanded),
+            onTap: onToggle,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
-                  Expanded(child: SectionHeader(widget.title)),
+                  Expanded(child: SectionHeader(title)),
                   Icon(
-                    _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     color: AppColors.muted,
                     size: 20,
                   ),
@@ -947,7 +974,7 @@ class _GridSectionState extends State<_GridSection> {
           AnimatedSize(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeInOut,
-            child: _expanded
+            child: expanded
                 ? GridView.count(
                     crossAxisCount: 3,
                     shrinkWrap: true,
@@ -955,7 +982,7 @@ class _GridSectionState extends State<_GridSection> {
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                     childAspectRatio: 1.0,
-                    children: widget.tiles.map((t) => _GridTile(tile: t)).toList(),
+                    children: tiles.map((t) => _GridTile(tile: t)).toList(),
                   )
                 : const SizedBox.shrink(),
           ),

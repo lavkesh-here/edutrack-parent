@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -59,6 +60,7 @@ class _State extends State<AttenderScreen> {
     final phoneCtrl = TextEditingController();
     final relCtrl = TextEditingController(text: 'Parent');
     bool saving = false;
+    XFile? pickedPhoto;
 
     showModalBottomSheet(
       context: context,
@@ -76,6 +78,37 @@ class _State extends State<AttenderScreen> {
               const SizedBox(height: 4),
               const Text('Authorized person to pick up your child', style: TextStyle(fontSize: 12, color: AppColors.muted)),
               const SizedBox(height: 20),
+              // Photo picker
+              Center(
+                child: GestureDetector(
+                  onTap: () async {
+                    final picker = ImagePicker();
+                    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, imageQuality: 80);
+                    if (picked != null) setS(() => pickedPhoto = picked);
+                  },
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 36,
+                        backgroundColor: AppColors.tealLight,
+                        backgroundImage: pickedPhoto != null ? FileImage(File(pickedPhoto!.path)) : null,
+                        child: pickedPhoto == null
+                            ? const Icon(Icons.person_outline, size: 32, color: AppColors.teal)
+                            : null,
+                      ),
+                      Positioned(
+                        right: 0, bottom: 0,
+                        child: Container(
+                          width: 22, height: 22,
+                          decoration: BoxDecoration(color: AppColors.teal, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 1.5)),
+                          child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               _Field(ctrl: nameCtrl, label: 'Full Name', icon: Icons.person_outline),
               const SizedBox(height: 12),
               _Field(ctrl: phoneCtrl, label: 'Phone Number', icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
@@ -100,6 +133,16 @@ class _State extends State<AttenderScreen> {
                               phone: phoneCtrl.text.trim(),
                               relation: relCtrl.text.trim().isEmpty ? 'Parent' : relCtrl.text.trim(),
                             );
+                            // Upload photo if picked
+                            if (pickedPhoto != null && mounted) {
+                              try {
+                                final latest = await ParentApiClient.getAttenders(widget.child.studentId);
+                                if (latest.isNotEmpty) {
+                                  final newId = latest.last['id'].toString();
+                                  await _doUpload(pickedPhoto!, newId);
+                                }
+                              } catch (_) {}
+                            }
                             if (mounted) {
                               Navigator.pop(ctx);
                               _load();
@@ -125,33 +168,38 @@ class _State extends State<AttenderScreen> {
     );
   }
 
+  Future<void> _doUpload(XFile photo, String attenderId) async {
+    final bytes = await photo.readAsBytes();
+    final ext = photo.name.split('.').last.toLowerCase();
+    final contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
+    final urlData = await ParentApiClient.getAttenderUploadUrl(
+      widget.child.studentId,
+      filename: photo.name,
+      contentType: contentType,
+      fileSize: bytes.lengthInBytes,
+    );
+    final uploadUrl = urlData['upload_url'] as String;
+    final gcsUrl = urlData['gcs_url'] as String;
+    final res = await http.put(
+      Uri.parse(uploadUrl),
+      headers: {'Content-Type': contentType},
+      body: bytes,
+    );
+    if (res.statusCode >= 300) throw Exception('Upload failed (${res.statusCode})');
+    await ParentApiClient.updateAttenderPhoto(widget.child.studentId, attenderId, gcsUrl);
+  }
+
   Future<void> _uploadPhoto(String attenderId) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, imageQuality: 80);
     if (picked == null) return;
-
     try {
-      final bytes = await picked.readAsBytes();
-      final ext = picked.name.split('.').last.toLowerCase();
-      final contentType = ext == 'png' ? 'image/png' : 'image/jpeg';
-
-      final urlData = await ParentApiClient.getAttenderUploadUrl(widget.child.studentId);
-      final uploadUrl = urlData['upload_url'] as String;
-      final photoUrl = urlData['photo_url'] as String;
-
-      final uploadRes = await http.put(
-        Uri.parse(uploadUrl),
-        headers: {'Content-Type': contentType},
-        body: bytes,
-      );
-      if (uploadRes.statusCode >= 300) throw Exception('Upload failed');
-
-      await ParentApiClient.updateAttenderPhoto(widget.child.studentId, attenderId, photoUrl);
+      await _doUpload(picked, attenderId);
       if (mounted) {
         showSnack(context, 'Photo updated');
         _load();
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) showSnack(context, 'Could not upload photo', error: true);
     }
   }
@@ -180,7 +228,6 @@ class _State extends State<AttenderScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      // Count indicator
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
@@ -205,8 +252,8 @@ class _State extends State<AttenderScreen> {
                             ),
                             if (atMax) ...[
                               const SizedBox(width: 6),
-                              Text('(limit reached)',
-                                  style: const TextStyle(fontSize: 11, color: AppColors.coral)),
+                              const Text('(limit reached)',
+                                  style: TextStyle(fontSize: 11, color: AppColors.coral)),
                             ],
                           ],
                         ),
