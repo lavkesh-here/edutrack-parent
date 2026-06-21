@@ -35,6 +35,12 @@ jobs:
           rm -rf android
           flutter create --platforms=android --org com.edutrack.dev --project-name edutrack_parent .
 
+      - name: Patch MainActivity for local_auth (FlutterFragmentActivity)
+        run: |
+          MAIN=$(find android/app/src/main/kotlin -name 'MainActivity.kt' | head -1)
+          sed -i 's/import io.flutter.embedding.android.FlutterActivity/import io.flutter.embedding.android.FlutterFragmentActivity/' "$MAIN"
+          sed -i 's/class MainActivity: FlutterActivity()/class MainActivity: FlutterFragmentActivity()/' "$MAIN"
+
       - name: Set app label to Parent (Dev)
         run: |
           sed -i 's/android:label="edutrack_parent"/android:label="Parent (Dev)"/' \
@@ -54,6 +60,8 @@ jobs:
           sed -i '/<manifest/a\    <uses-permission android:name="android.permission.VIBRATE"/>' \
             android/app/src/main/AndroidManifest.xml
           sed -i '/<manifest/a\    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' \
+            android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>' \
             android/app/src/main/AndroidManifest.xml
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' \
             android/app/src/main/AndroidManifest.xml
