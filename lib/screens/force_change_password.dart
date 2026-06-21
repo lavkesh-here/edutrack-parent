@@ -36,6 +36,8 @@ class _State extends State<ForceChangePasswordScreen> {
         newPassword: _newCtrl.text,
       );
       if (!mounted) return;
+      await context.read<ParentAuthProvider>().disableBiometric();
+      if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
     } on ApiError catch (e) {
       setState(() => _error = e.message);

@@ -261,7 +261,6 @@ class _WorkLogCard extends StatelessWidget {
 
   Widget _ackIndicator() {
     switch (item.ackStatus) {
-      case 'seen':
       case 'completed':
         return const Icon(Icons.check_circle, color: AppColors.teal, size: 18);
       case 'incomplete':
@@ -273,7 +272,7 @@ class _WorkLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPending = item.ackStatus == 'pending';
+    final isPending = item.ackStatus == 'pending' || item.ackStatus == 'seen';
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       padding: const EdgeInsets.all(14),
@@ -336,16 +335,9 @@ class _WorkLogCard extends StatelessWidget {
             Row(
               children: [
                 _AckButton(
-                  label: 'Seen',
-                  icon: Icons.visibility_outlined,
-                  color: AppColors.teal,
-                  onTap: () => onAcknowledge(item, 'seen'),
-                ),
-                const SizedBox(width: 8),
-                _AckButton(
                   label: 'Done',
                   icon: Icons.check_circle_outline,
-                  color: AppColors.sky,
+                  color: AppColors.teal,
                   onTap: () => onAcknowledge(item, 'completed'),
                 ),
                 const SizedBox(width: 8),

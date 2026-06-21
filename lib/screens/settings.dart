@@ -154,11 +154,18 @@ class _State extends State<SettingsScreen> {
         newPassword: _newCtrl.text,
       );
       if (!mounted) return;
+      final auth = context.read<ParentAuthProvider>();
+      final wasBioEnabled = await auth.isBiometricEnabled;
+      if (wasBioEnabled) await auth.disableBiometric();
       setState(() {
         _success = 'Password changed successfully';
         _expanded = false;
+        _bioEnabled = false;
       });
       _currentCtrl.clear(); _newCtrl.clear(); _confirmCtrl.clear();
+      if (wasBioEnabled && mounted) {
+        showSnack(context, 'Biometric unlock disabled — re-enable in Settings with your new password.');
+      }
     } on ApiError catch (e) {
       setState(() => _error = e.message);
     } catch (_) {

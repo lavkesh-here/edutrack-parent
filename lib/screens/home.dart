@@ -35,7 +35,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _homeTabKey = GlobalKey<_HomeTabState>();
-  late final PageController _childPageCtrl = PageController();
   int _idx = 0;
   List<ChildInfo> _children = [];
   int _childIdx = 0;
@@ -49,12 +48,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadProfile();
-  }
-
-  @override
-  void dispose() {
-    _childPageCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _loadProfile() async {
@@ -122,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: child,
         children: _children,
         childIdx: _childIdx,
-        onSwitchChild: (i) => setState(() { _childIdx = i; _childPageCtrl.animateToPage(i, duration: const Duration(milliseconds: 250), curve: Curves.easeInOut); }),
+        onSwitchChild: (i) => setState(() => _childIdx = i),
         onSwitchTab: (i) => setState(() => _idx = i),
         onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
         onPhotoUpdated: (url) => setState(() {
@@ -309,122 +302,6 @@ class _DrawerItem extends StatelessWidget {
 }
 
 // ── Child Card Switcher (swipeable PageView) ──────────────────────────────────
-
-class _ChildCardSwitcher extends StatelessWidget {
-  final List<ChildInfo> children;
-  final int activeIdx;
-  final PageController pageCtrl;
-  final void Function(int) onSwitch;
-  final void Function(ChildInfo) onCardTap;
-
-  const _ChildCardSwitcher({
-    required this.children,
-    required this.activeIdx,
-    required this.pageCtrl,
-    required this.onSwitch,
-    required this.onCardTap,
-  });
-
-  String _initials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-    return parts.first.isNotEmpty ? parts.first[0].toUpperCase() : '?';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: 72,
-            child: PageView.builder(
-              controller: pageCtrl,
-              itemCount: children.length,
-              onPageChanged: onSwitch,
-              itemBuilder: (_, i) {
-                final child = children[i];
-                final isFemale = child.gender?.toLowerCase() == 'female';
-                final avatarBg = isFemale ? const Color(0xFFF3E8FF) : const Color(0xFFDBEAFE);
-                final avatarFg = isFemale ? const Color(0xFF7C3AED) : const Color(0xFF1D4ED8);
-
-                return GestureDetector(
-                  onTap: () => onCardTap(child),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.bg,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.teal.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        // Avatar
-                        child.photoUrl != null && child.photoUrl!.isNotEmpty
-                            ? ClipOval(
-                                child: Image.network(
-                                  child.photoUrl!,
-                                  width: 40, height: 40, fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => _initialsAvatar(child, avatarBg, avatarFg),
-                                ),
-                              )
-                            : _initialsAvatar(child, avatarBg, avatarFg),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                child.studentName,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.text),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (child.classLabel != null)
-                                Text(child.classLabel!, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right, color: AppColors.muted, size: 18),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          // Dot indicators
-          if (children.length > 1)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(children.length, (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: i == activeIdx ? 16 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: i == activeIdx ? AppColors.teal : AppColors.border,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              )),
-            ),
-          const SizedBox(height: 6),
-        ],
-      ),
-    );
-  }
-
-  Widget _initialsAvatar(ChildInfo child, Color bg, Color fg) => Container(
-        width: 40, height: 40,
-        decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-        child: Center(
-          child: Text(_initials(child.studentName), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: fg)),
-        ),
-      );
-}
 
 // ── Home Tab ──────────────────────────────────────────────────────────────────
 
@@ -951,43 +828,99 @@ class _GridSection extends StatelessWidget {
   final VoidCallback onToggle;
   const _GridSection({required this.title, required this.tiles, required this.expanded, required this.onToggle});
 
+  static const _meta = {
+    'ACADEMICS':      ('📚', AppColors.teal,   AppColors.tealLight),
+    'COMMUNICATION':  ('🔔', AppColors.sky,    AppColors.skyLight),
+    'SCHOOL INFO':    ('🏫', AppColors.violet, AppColors.violetLight),
+    'PARENT CORNER':  ('👨‍👩‍👧', AppColors.sun,    AppColors.sunLight),
+    'OTHERS':         ('🚌', AppColors.amber,  AppColors.amberLight),
+    'ACCOUNT':        ('⚙️', AppColors.muted,  AppColors.bg),
+  };
+
   @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final (icon, color, bg) = _meta[title] ?? ('📁', AppColors.muted, AppColors.bg);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: expanded ? color.withOpacity(0.35) : AppColors.border,
+          width: expanded ? 1.5 : 1,
+        ),
+        boxShadow: expanded
+            ? [BoxShadow(color: color.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))]
+            : const [],
+      ),
+      child: Column(
         children: [
           GestureDetector(
             onTap: onToggle,
+            behavior: HitTestBehavior.opaque,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               child: Row(
                 children: [
-                  Expanded(child: SectionHeader(title)),
+                  Container(
+                    width: 38, height: 38,
+                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(11)),
+                    child: Center(child: Text(icon, style: const TextStyle(fontSize: 18))),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: expanded ? color : AppColors.text),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: expanded ? color.withOpacity(0.12) : AppColors.bg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${tiles.length}',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: expanded ? color : AppColors.muted),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Icon(
-                    expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    color: AppColors.muted,
-                    size: 20,
+                    expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    color: expanded ? color : AppColors.muted,
+                    size: 22,
                   ),
                 ],
               ),
             ),
           ),
           AnimatedSize(
-            duration: const Duration(milliseconds: 200),
+            duration: const Duration(milliseconds: 220),
             curve: Curves.easeInOut,
             child: expanded
-                ? GridView.count(
-                    crossAxisCount: 3,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 1.0,
-                    children: tiles.map((t) => _GridTile(tile: t)).toList(),
+                ? Column(
+                    children: [
+                      Divider(height: 1, color: color.withOpacity(0.15)),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                        child: GridView.count(
+                          crossAxisCount: 3,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 1.0,
+                          children: tiles.map((t) => _GridTile(tile: t)).toList(),
+                        ),
+                      ),
+                    ],
                   )
                 : const SizedBox.shrink(),
           ),
         ],
-      );
+      ),
+    );
+  }
 }
 
 class _GridTile extends StatelessWidget {
