@@ -46,70 +46,20 @@ class _State extends State<SettingsScreen> {
 
   Future<void> _setBioEnabled(bool value) async {
     final auth = context.read<ParentAuthProvider>();
-    if (!value) {
-      await auth.disableBiometric();
-      if (mounted) setState(() => _bioEnabled = false);
-      return;
-    }
+    final confirmed = await auth.authenticateBiometric(
+      value ? 'Confirm your biometric to enable quick unlock' : 'Confirm your biometric to disable quick unlock',
+    );
+    if (!confirmed || !mounted) return;
 
-    final phone = await auth.getStoredPhone();
-    if (phone == null) {
-      if (mounted) showSnack(context, 'Sign out and sign in again to enable biometric', error: true);
-      return;
-    }
-
-    String? password;
-    final passCtrl = TextEditingController();
-    bool obscure = true;
-    try {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => StatefulBuilder(
-          builder: (ctx, setS) => AlertDialog(
-            title: const Text('Enable Biometric Unlock', style: TextStyle(fontWeight: FontWeight.w800)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Enter your current password to confirm.', style: TextStyle(fontSize: 13, color: AppColors.muted)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: passCtrl,
-                  obscureText: obscure,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    hintText: '••••••••',
-                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.muted, size: 18),
-                    suffixIcon: GestureDetector(
-                      onTap: () => setS(() => obscure = !obscure),
-                      child: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                          color: AppColors.muted, size: 18),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Enable')),
-            ],
-          ),
-        ),
-      );
-      password = passCtrl.text;
-      if (confirmed != true || password.isEmpty || !mounted) return;
-    } finally {
-      passCtrl.dispose();
-    }
-
-    try {
-      await auth.enableBiometric(phone, password!);
+    if (value) {
+      await auth.enableBiometric();
       if (mounted) {
         setState(() => _bioEnabled = true);
         showSnack(context, 'Biometric unlock enabled');
       }
-    } catch (_) {
-      if (mounted) showSnack(context, 'Could not enable biometric. Check your password.', error: true);
+    } else {
+      await auth.disableBiometric();
+      if (mounted) setState(() => _bioEnabled = false);
     }
   }
 
@@ -164,7 +114,7 @@ class _State extends State<SettingsScreen> {
       });
       _currentCtrl.clear(); _newCtrl.clear(); _confirmCtrl.clear();
       if (wasBioEnabled && mounted) {
-        showSnack(context, 'Biometric unlock disabled — re-enable in Settings with your new password.');
+        showSnack(context, 'Biometric unlock disabled — re-enable it in Settings.');
       }
     } on ApiError catch (e) {
       setState(() => _error = e.message);

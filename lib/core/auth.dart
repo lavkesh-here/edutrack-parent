@@ -7,8 +7,6 @@ import 'cache.dart';
 import 'features.dart';
 
 const _secureStorage = FlutterSecureStorage();
-const _kBioPhone    = 'parent_bio_phone';
-const _kBioPass     = 'parent_bio_password';
 const _kBioEnabled  = 'parent_bio_enabled';
 
 class ParentUser {
@@ -22,6 +20,7 @@ class ParentUser {
 class ParentAuthProvider extends ChangeNotifier {
   ParentUser? _user;
   bool _loading = true;
+  bool _isLocked = false;
   FeatureFlags _features = FeatureFlags.defaults();
   String? _pendingNotifType;
   String? _pendingNotifStudentId;
@@ -39,39 +38,54 @@ class ParentAuthProvider extends ChangeNotifier {
   Future<bool> get isBiometricEnabled async =>
       (await SharedPreferences.getInstance()).getBool(_kBioEnabled) ?? false;
 
-  Future<void> enableBiometric(String phone, String password) async {
-    await _secureStorage.write(key: _kBioPhone, value: phone);
-    await _secureStorage.write(key: _kBioPass,  value: password);
+  Future<void> enableBiometric() async {
     (await SharedPreferences.getInstance()).setBool(_kBioEnabled, true);
   }
 
   Future<void> disableBiometric() async {
-    await _secureStorage.delete(key: _kBioPhone);
-    await _secureStorage.delete(key: _kBioPass);
     (await SharedPreferences.getInstance()).setBool(_kBioEnabled, false);
+    // Clean up any legacy stored credentials
+    await _secureStorage.delete(key: 'parent_bio_phone');
+    await _secureStorage.delete(key: 'parent_bio_password');
   }
 
-  /// Returns null on success, error message on failure.
-  Future<String?> biometricLogin() async {
+  /// Prompts biometric and unlocks the app. Returns null on success, error string on failure.
+  Future<String?> unlockApp() async {
     try {
       final authed = await _localAuth.authenticate(
         localizedReason: 'Unlock EduTrack Parent',
         options: const AuthenticationOptions(biometricOnly: false, stickyAuth: true),
       );
-      if (!authed) return 'Biometric authentication cancelled.';
-      final phone    = await _secureStorage.read(key: _kBioPhone);
-      final password = await _secureStorage.read(key: _kBioPass);
-      if (phone == null || password == null) return 'Stored credentials missing.';
-      await login(phone, password);
+      if (!authed) return 'Authentication cancelled.';
+      _isLocked = false;
+      notifyListeners();
       return null;
     } catch (e) {
       return 'Biometric error: $e';
     }
   }
 
+  /// Prompts biometric for confirmation (enrollment / toggle). Returns true if authenticated.
+  Future<bool> authenticateBiometric(String reason) async {
+    try {
+      return await _localAuth.authenticate(
+        localizedReason: reason,
+        options: const AuthenticationOptions(biometricOnly: false, stickyAuth: true),
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void lockApp() {
+    _isLocked = true;
+    notifyListeners();
+  }
+
   ParentUser? get user => _user;
   bool get isLoggedIn => _user != null;
   bool get loading => _loading;
+  bool get isLocked => _isLocked;
   FeatureFlags get features => _features;
   String? get pendingNotifType => _pendingNotifType;
   String? get pendingNotifStudentId => _pendingNotifStudentId;
@@ -160,6 +174,7 @@ class ParentAuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _isLocked = false;
     await ParentApiClient.setToken(null);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('parent_name');

@@ -337,6 +337,8 @@ class _HomeTabState extends State<_HomeTab> {
   String _search = '';
   final _searchCtrl = TextEditingController();
   String? _openSection;
+  bool _bioAvailable = false;
+  bool _bioEnabled = false;
 
   void _clearSearch() {
     _searchCtrl.clear();
@@ -353,6 +355,35 @@ class _HomeTabState extends State<_HomeTab> {
   void initState() {
     super.initState();
     _load();
+    _loadBio();
+  }
+
+  Future<void> _loadBio() async {
+    final auth = context.read<ParentAuthProvider>();
+    final available = await auth.isBiometricAvailable;
+    final enabled = await auth.isBiometricEnabled;
+    if (mounted) setState(() { _bioAvailable = available; _bioEnabled = enabled; });
+  }
+
+  Future<void> _setBioEnabled(bool value) async {
+    final auth = context.read<ParentAuthProvider>();
+    final confirmed = await auth.authenticateBiometric(
+      value ? 'Confirm your biometric to enable quick unlock' : 'Confirm your biometric to disable quick unlock',
+    );
+    if (!confirmed || !mounted) return;
+
+    if (value) {
+      await auth.enableBiometric();
+      if (mounted) {
+        setState(() => _bioEnabled = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometric unlock enabled'), backgroundColor: AppColors.teal),
+        );
+      }
+    } else {
+      await auth.disableBiometric();
+      if (mounted) setState(() => _bioEnabled = false);
+    }
   }
 
   @override
@@ -791,6 +822,30 @@ class _HomeTabState extends State<_HomeTab> {
                                           _Tile('🔍', 'Search', AppColors.teal, AppColors.tealLight, () => _push(SearchScreen(child: child)), 'ACCOUNT'),
                                           _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen()), 'ACCOUNT'),
                                         ]),
+                                      if (_bioAvailable) ...[
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(18),
+                                            border: Border.all(color: AppColors.border, width: 1),
+                                          ),
+                                          child: ListTile(
+                                            leading: Container(
+                                              width: 38, height: 38,
+                                              decoration: BoxDecoration(color: AppColors.violetLight, borderRadius: BorderRadius.circular(10)),
+                                              child: const Icon(Icons.fingerprint_rounded, color: AppColors.violet, size: 22),
+                                            ),
+                                            title: const Text('Biometric Unlock', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text)),
+                                            subtitle: const Text('Fingerprint or face to unlock app', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                                            trailing: Switch(
+                                              value: _bioEnabled,
+                                              onChanged: _setBioEnabled,
+                                              activeColor: AppColors.teal,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),

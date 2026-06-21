@@ -69,11 +69,40 @@ class _Root extends StatefulWidget {
   State<_Root> createState() => _RootState();
 }
 
-class _RootState extends State<_Root> {
+class _RootState extends State<_Root> with WidgetsBindingObserver {
+  DateTime? _pausedAt;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _setupFcm();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _pausedAt = DateTime.now();
+    } else if (state == AppLifecycleState.resumed) {
+      _checkAppLock();
+    }
+  }
+
+  Future<void> _checkAppLock() async {
+    if (_pausedAt == null || !mounted) return;
+    final elapsed = DateTime.now().difference(_pausedAt!);
+    _pausedAt = null;
+    final auth = context.read<ParentAuthProvider>();
+    if (!auth.isLoggedIn) return;
+    if (elapsed.inSeconds >= 60 && await auth.isBiometricEnabled) {
+      auth.lockApp();
+    }
   }
 
   Future<void> _setupFcm() async {
@@ -170,6 +199,124 @@ class _RootState extends State<_Root> {
       } catch (_) {}
     }
 
-    return auth.isLoggedIn ? const HomeScreen() : const LoginScreen();
+    if (!auth.isLoggedIn) return const LoginScreen();
+    if (auth.isLocked) return const _BiometricLockScreen();
+    return const HomeScreen();
+  }
+}
+
+// ── Biometric lock screen ─────────────────────────────────────────────────────
+
+class _BiometricLockScreen extends StatefulWidget {
+  const _BiometricLockScreen();
+
+  @override
+  State<_BiometricLockScreen> createState() => _BiometricLockScreenState();
+}
+
+class _BiometricLockScreenState extends State<_BiometricLockScreen> {
+  String? _error;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _unlock());
+  }
+
+  Future<void> _unlock() async {
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+    final auth = context.read<ParentAuthProvider>();
+    final err = await auth.unlockApp();
+    if (!mounted) return;
+    setState(() { _loading = false; _error = err; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0FDFC),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF14B8A6).withOpacity(0.35),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Center(child: Text('👨‍👩‍👧', style: TextStyle(fontSize: 34))),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'EduTrack is locked',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1C1917)),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Use your fingerprint or face to continue',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF78716C)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                if (_error != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F2),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFFDA4AF)),
+                    ),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFFBE123C), fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: _loading ? null : _unlock,
+                    icon: _loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                          )
+                        : const Icon(Icons.fingerprint_rounded, size: 22),
+                    label: Text(_loading ? 'Verifying…' : 'Unlock'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF14B8A6),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
