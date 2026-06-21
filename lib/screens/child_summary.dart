@@ -129,7 +129,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
   Widget _body() {
     final name = widget.child.studentName;
     final classLabel = _profile?['class_label'] as String? ?? widget.child.classLabel ?? '';
-    final admNo = _profile?['admission_number'] as String? ?? widget.child.admissionNumber ?? '';
+    final admNo = _profile?['admission_number'] as String? ?? widget.child.admissionNumber;
     final gender = _profile?['gender'] as String? ?? widget.child.gender;
 
     return NestedScrollView(

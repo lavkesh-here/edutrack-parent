@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
-import '../widgets/common.dart';
 
 class TimetableScreen extends StatefulWidget {
   final String studentId;
@@ -29,7 +28,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     try {
       final data = await ParentApiClient.getChildTimetable(widget.studentId);
       setState(() { _timetable = Map<String, List<dynamic>>.from(
-        data.map((k, v) => MapEntry(k as String, List<dynamic>.from(v as List)))
+        data.map((k, v) => MapEntry(k, List<dynamic>.from(v as List)))
       ); _loading = false; });
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; });

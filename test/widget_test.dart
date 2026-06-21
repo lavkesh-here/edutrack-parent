@@ -1,21 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('Parent biometric storage keys', () {
-    const kBioPhone   = 'parent_bio_phone';
-    const kBioPass    = 'parent_bio_password';
+  group('Parent biometric storage key', () {
     const kBioEnabled = 'parent_bio_enabled';
 
-    test('parent bio keys are distinct from teacher keys', () {
-      expect(kBioPhone,   isNot(equals('bio_email')));
-      expect(kBioPass,    isNot(equals('bio_password')));
+    test('parent bio key is distinct from teacher bio key', () {
       expect(kBioEnabled, isNot(equals('bio_enabled')));
     });
 
-    test('all three keys are distinct from each other', () {
-      expect(kBioPhone, isNot(equals(kBioPass)));
-      expect(kBioPass, isNot(equals(kBioEnabled)));
-      expect(kBioPhone, isNot(equals(kBioEnabled)));
+    test('bio enabled key is non-empty', () {
+      expect(kBioEnabled.isEmpty, isFalse);
     });
   });
 
@@ -60,33 +54,32 @@ void main() {
     });
 
     test('badge label: production → PRODUCTION', () {
-      const isProd = true;
-      expect(isProd ? 'PRODUCTION' : 'DEV', equals('PRODUCTION'));
+      final url = defaultUrl;
+      final label = url == defaultUrl ? 'PRODUCTION' : 'DEV';
+      expect(label, equals('PRODUCTION'));
     });
 
     test('badge label: dev → DEV', () {
-      const isProd = false;
-      expect(isProd ? 'PRODUCTION' : 'DEV', equals('DEV'));
+      const devUrl = 'http://192.168.1.5:8000';
+      final label = devUrl == defaultUrl ? 'PRODUCTION' : 'DEV';
+      expect(label, equals('DEV'));
     });
   });
 
   group('Parent biometric enrollment offer', () {
+    bool shouldOffer(bool available, bool alreadyEnabled) =>
+        available && !alreadyEnabled;
+
     test('offered when bio available and not already enabled', () {
-      const available = true;
-      const alreadyEnabled = false;
-      expect(available && !alreadyEnabled, isTrue);
+      expect(shouldOffer(true, false), isTrue);
     });
 
     test('not offered when already enabled', () {
-      const available = true;
-      const alreadyEnabled = true;
-      expect(available && !alreadyEnabled, isFalse);
+      expect(shouldOffer(true, true), isFalse);
     });
 
     test('not offered when hardware unavailable', () {
-      const available = false;
-      const alreadyEnabled = false;
-      expect(available && !alreadyEnabled, isFalse);
+      expect(shouldOffer(false, false), isFalse);
     });
   });
 

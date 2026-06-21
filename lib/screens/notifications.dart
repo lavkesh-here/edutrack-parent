@@ -152,7 +152,6 @@ class _State extends State<NotificationsScreen> {
                       if (_inbox.isNotEmpty) ...[
                         const _SectionLabel('ALERTS'),
                         ..._inbox.map((n) {
-                          final id = n['id'].toString();
                           final title = n['title'] as String? ?? '';
                           final body = n['body'] as String? ?? '';
                           final type = n['notification_type'] as String? ?? '';

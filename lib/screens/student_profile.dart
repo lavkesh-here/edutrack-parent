@@ -30,8 +30,8 @@ class _State extends State<StudentProfileScreen> {
         ParentApiClient.getProfile(),
       ]);
       if (mounted) setState(() {
-        _profile = results[0] as Map<String, dynamic>;
-        _parentProfile = results[1] as Map<String, dynamic>;
+        _profile = results[0];
+        _parentProfile = results[1];
         _loading = false;
       });
     } on ApiError catch (e) {

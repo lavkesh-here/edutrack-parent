@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'cache.dart';
 
 /// Typed accessor for school feature flags.
