@@ -20,6 +20,7 @@ import 'fees.dart';
 import 'attender.dart';
 import 'teachers.dart';
 import 'circulars.dart';
+import 'documents.dart';
 import 'timetable.dart';
 import 'upcoming_tests.dart';
 import 'child_summary.dart';
@@ -539,6 +540,8 @@ class _HomeTabState extends State<_HomeTab> {
       if (flags.fees)
         _Tile('💰', 'Fees', AppColors.sun, AppColors.sunLight, () => _push(FeesScreen(child: child)), 'PARENT CORNER'),
       _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight, () => _push(AttenderScreen(child: child)), 'PARENT CORNER'),
+      if (flags.documents)
+        _Tile('📄', 'Documents', AppColors.sky, AppColors.skyLight, () => _push(DocumentsScreen(child: child)), 'PARENT CORNER'),
       if (flags.transport)
         _Tile('🚌', 'Transport', AppColors.coral, AppColors.coralLight, () => _push(TransportScreen(child: child)), 'OTHERS'),
       _Tile('🔍', 'Search', AppColors.teal, AppColors.tealLight, () => _push(SearchScreen(child: child)), 'ACCOUNT'),

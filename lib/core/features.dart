@@ -26,6 +26,7 @@ class FeatureFlags {
   bool get visitorLog => _flags['feature.visitor_log'] ?? true;
   bool get announcements => _flags['feature.announcements'] ?? true;
   bool get circulars => _flags['feature.circulars'] ?? true;
+  bool get documents => _flags['feature.documents'] ?? true;
   bool get fees => _flags['feature.parent_fees'] ?? true;
   bool get transport => _flags['feature.transport'] ?? true;
   bool get workLogs => _flags['feature.work_logs'] ?? true;

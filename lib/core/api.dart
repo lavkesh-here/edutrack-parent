@@ -593,6 +593,13 @@ class ParentApiClient {
     return (data as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
   }
 
+  // ── Documents ─────────────────────────────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getDocuments(String studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/documents');
+    return (data as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
+  }
+
   // ── Timetable ─────────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> getChildTimetable(String studentId) async {
