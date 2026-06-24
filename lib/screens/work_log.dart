@@ -370,6 +370,7 @@ class _WorkLogCard extends StatelessWidget {
       builder: (_) => AlertDialog(
         title: const Text('Why was it not done?', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
         content: TextField(
+          key: const Key('incomplete_note_field'),
           controller: noteCtrl,
           maxLines: 3,
           decoration: const InputDecoration(
@@ -380,6 +381,7 @@ class _WorkLogCard extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
+            key: const Key('submit_incomplete_button'),
             onPressed: () {
               Navigator.pop(context);
               onAcknowledge(item, 'incomplete');

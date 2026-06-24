@@ -41,6 +41,7 @@ class FAQScreen extends StatelessWidget {
               border: Border.all(color: AppColors.border, width: 1.5),
             ),
             child: ExpansionTile(
+              key: Key('faq_tile_$i'),
               tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               leading: Container(

@@ -183,11 +183,11 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 62,
               child: Row(
                 children: [
-                  _NavItem(icon: '🏠', label: 'Home', index: 0, current: _idx, onTap: (i) => setState(() => _idx = i)),
-                  _NavItem(icon: '📋', label: 'Attendance', index: 1, current: _idx, onTap: (i) => setState(() => _idx = i)),
-                  _NavItem(icon: '📊', label: 'Results', index: 2, current: _idx, onTap: (i) => setState(() => _idx = i)),
-                  _NavItem(icon: '📚', label: 'Work Log', index: 3, current: _idx, onTap: (i) => setState(() => _idx = i)),
-                  _NavItem(icon: '👤', label: 'Profile', index: 4, current: _idx, onTap: (i) => setState(() => _idx = i)),
+                  _NavItem(key: const Key('nav_home'), icon: '🏠', label: 'Home', index: 0, current: _idx, onTap: (i) => setState(() => _idx = i)),
+                  _NavItem(key: const Key('nav_attendance'), icon: '📋', label: 'Attendance', index: 1, current: _idx, onTap: (i) => setState(() => _idx = i)),
+                  _NavItem(key: const Key('nav_results'), icon: '📊', label: 'Results', index: 2, current: _idx, onTap: (i) => setState(() => _idx = i)),
+                  _NavItem(key: const Key('nav_work_log'), icon: '📚', label: 'Work Log', index: 3, current: _idx, onTap: (i) => setState(() => _idx = i)),
+                  _NavItem(key: const Key('nav_profile'), icon: '👤', label: 'Profile', index: 4, current: _idx, onTap: (i) => setState(() => _idx = i)),
                 ],
               ),
             ),
@@ -557,6 +557,7 @@ class _HomeTabState extends State<_HomeTab> {
     final child = widget.child;
 
     return Scaffold(
+      key: const Key('home_tab_content'),
       backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Column(
@@ -768,6 +769,7 @@ class _HomeTabState extends State<_HomeTab> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _GridSection(
+                                        key: const Key('accordion_attendance'),
                                         title: 'ACADEMICS',
                                         expanded: _openSection == 'ACADEMICS',
                                         onToggle: () => setState(() => _openSection = _openSection == 'ACADEMICS' ? null : 'ACADEMICS'),
@@ -779,6 +781,7 @@ class _HomeTabState extends State<_HomeTab> {
                                         ]),
                                       const SizedBox(height: 8),
                                       _GridSection(
+                                        key: const Key('accordion_tests'),
                                         title: 'COMMUNICATION',
                                         expanded: _openSection == 'COMMUNICATION',
                                         onToggle: () => setState(() => _openSection = _openSection == 'COMMUNICATION' ? null : 'COMMUNICATION'),
@@ -881,7 +884,7 @@ class _GridSection extends StatelessWidget {
   final List<_Tile> tiles;
   final bool expanded;
   final VoidCallback onToggle;
-  const _GridSection({required this.title, required this.tiles, required this.expanded, required this.onToggle});
+  const _GridSection({super.key, required this.title, required this.tiles, required this.expanded, required this.onToggle});
 
   static const _meta = {
     'ACADEMICS':      ('📚', AppColors.teal,   AppColors.tealLight),
@@ -1022,7 +1025,7 @@ class _NavItem extends StatelessWidget {
   final int current;
   final void Function(int) onTap;
 
-  const _NavItem({required this.icon, required this.label, required this.index, required this.current, required this.onTap});
+  const _NavItem({super.key, required this.icon, required this.label, required this.index, required this.current, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

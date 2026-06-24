@@ -208,6 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 6),
                     TextField(
+                      key: const Key('school_code_field'),
                       controller: _codeCtrl,
                       textCapitalization: TextCapitalization.characters,
                       textInputAction: TextInputAction.go,
@@ -229,6 +230,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(
                       height: 50,
                       child: ElevatedButton(
+                        key: const Key('school_code_next'),
                         onPressed: _loading ? null : _next,
                         style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal),
                         child: _loading
@@ -396,6 +398,7 @@ class _CredentialsScreenState extends State<_CredentialsScreen> {
                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
                     const SizedBox(height: 6),
                     TextField(
+                      key: const Key('phone_field'),
                       controller: _phoneCtrl,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
@@ -411,6 +414,7 @@ class _CredentialsScreenState extends State<_CredentialsScreen> {
                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
                     const SizedBox(height: 6),
                     TextField(
+                      key: const Key('password_field'),
                       controller: _passCtrl,
                       obscureText: _obscure,
                       textInputAction: TextInputAction.done,
@@ -441,6 +445,7 @@ class _CredentialsScreenState extends State<_CredentialsScreen> {
                     SizedBox(
                       height: 50,
                       child: ElevatedButton(
+                        key: const Key('login_button'),
                         onPressed: _loading ? null : _login,
                         style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal),
                         child: _loading

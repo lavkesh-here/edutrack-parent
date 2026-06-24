@@ -75,6 +75,7 @@ class _State extends State<AddChildScreen> {
               children: [
                 Expanded(
                   child: TextField(
+                    key: const Key('school_code_field'),
                     controller: _codeCtrl,
                     textCapitalization: TextCapitalization.characters,
                     maxLength: 50,
@@ -86,6 +87,7 @@ class _State extends State<AddChildScreen> {
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
+                    key: const Key('verify_school_code_button'),
                     onPressed: _lookingUp ? null : _lookupSchool,
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal, padding: const EdgeInsets.symmetric(horizontal: 16)),
                     child: _lookingUp
@@ -113,6 +115,7 @@ class _State extends State<AddChildScreen> {
               const Text('ADMISSION NUMBER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
               const SizedBox(height: 6),
               TextField(
+                key: const Key('admission_number_field'),
                 controller: _admCtrl,
                 maxLength: 50,
                 decoration: const InputDecoration(hintText: 'Student admission number', counterText: ''),
@@ -121,6 +124,7 @@ class _State extends State<AddChildScreen> {
               const Text('YOUR PASSWORD (CONFIRM)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
               const SizedBox(height: 6),
               TextField(
+                key: const Key('confirm_password_field'),
                 controller: _passCtrl,
                 obscureText: _obscure,
                 maxLength: 128,
@@ -145,6 +149,7 @@ class _State extends State<AddChildScreen> {
               SizedBox(
                 height: 50,
                 child: ElevatedButton(
+                  key: const Key('link_child_button'),
                   onPressed: _saving ? null : _submit,
                   style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal),
                   child: _saving

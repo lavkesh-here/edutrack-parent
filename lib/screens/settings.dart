@@ -143,6 +143,7 @@ class _State extends State<SettingsScreen> {
             child: Column(
               children: [
                 ListTile(
+                  key: const Key('change_password_tile'),
                   leading: Container(
                     width: 38, height: 38,
                     decoration: BoxDecoration(color: AppColors.tealLight, borderRadius: BorderRadius.circular(10)),
@@ -161,13 +162,13 @@ class _State extends State<SettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _PassField(label: 'Current Password', ctrl: _currentCtrl, obscure: _obscureCurrent,
-                            onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent)),
+                            onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent), fieldKey: const Key('current_password_field')),
                         const SizedBox(height: 12),
                         _PassField(label: 'New Password', ctrl: _newCtrl, obscure: _obscureNew,
-                            onToggle: () => setState(() => _obscureNew = !_obscureNew)),
+                            onToggle: () => setState(() => _obscureNew = !_obscureNew), fieldKey: const Key('new_password_field')),
                         const SizedBox(height: 12),
                         _PassField(label: 'Confirm New Password', ctrl: _confirmCtrl, obscure: _obscureConfirm,
-                            onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm)),
+                            onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm), fieldKey: const Key('confirm_password_field')),
                         if (_error != null) ...[
                           const SizedBox(height: 10),
                           Container(
@@ -188,6 +189,7 @@ class _State extends State<SettingsScreen> {
                         SizedBox(
                           height: 46,
                           child: ElevatedButton(
+                            key: const Key('update_password_button'),
                             onPressed: _saving ? null : _changePassword,
                             style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal),
                             child: _saving
@@ -341,7 +343,8 @@ class _PassField extends StatelessWidget {
   final TextEditingController ctrl;
   final bool obscure;
   final VoidCallback onToggle;
-  const _PassField({required this.label, required this.ctrl, required this.obscure, required this.onToggle});
+  final Key? fieldKey;
+  const _PassField({required this.label, required this.ctrl, required this.obscure, required this.onToggle, this.fieldKey});
 
   @override
   Widget build(BuildContext context) => Column(
@@ -351,6 +354,7 @@ class _PassField extends StatelessWidget {
               style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
           const SizedBox(height: 6),
           TextField(
+            key: fieldKey,
             controller: ctrl,
             obscureText: obscure,
             decoration: InputDecoration(

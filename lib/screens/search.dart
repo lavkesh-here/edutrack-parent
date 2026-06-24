@@ -69,6 +69,7 @@ class _SearchScreenState extends State<SearchScreen> {
         elevation: 0,
         titleSpacing: 0,
         title: TextField(
+          key: const Key('global_search_field'),
           controller: _ctrl,
           focusNode: _focus,
           onChanged: _search,

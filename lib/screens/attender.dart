@@ -109,15 +109,16 @@ class _State extends State<AttenderScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              _Field(ctrl: nameCtrl, label: 'Full Name', icon: Icons.person_outline),
+              _Field(fieldKey: const Key('attender_name_field'), ctrl: nameCtrl, label: 'Full Name', icon: Icons.person_outline),
               const SizedBox(height: 12),
-              _Field(ctrl: phoneCtrl, label: 'Phone Number', icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
+              _Field(fieldKey: const Key('attender_phone_field'), ctrl: phoneCtrl, label: 'Phone Number', icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
               const SizedBox(height: 12),
-              _Field(ctrl: relCtrl, label: 'Relation (e.g. Uncle, Driver)', icon: Icons.people_outline),
+              _Field(fieldKey: const Key('attender_relation_field'), ctrl: relCtrl, label: 'Relation (e.g. Uncle, Driver)', icon: Icons.people_outline),
               const SizedBox(height: 20),
               SizedBox(
                 height: 48,
                 child: ElevatedButton(
+                  key: const Key('add_attender_button'),
                   onPressed: saving
                       ? null
                       : () async {
@@ -213,6 +214,7 @@ class _State extends State<AttenderScreen> {
       backgroundColor: AppColors.bg,
       appBar: AppBar(title: const Text('Attenders'), leading: const BackButton()),
       floatingActionButton: FloatingActionButton(
+        key: const Key('add_attender_fab'),
         onPressed: atMax ? null : _showAddDialog,
         backgroundColor: atMax ? AppColors.border : AppColors.teal,
         tooltip: atMax ? 'Maximum 3 attenders reached' : 'Add Attender',
@@ -382,10 +384,12 @@ class _Field extends StatelessWidget {
   final String label;
   final IconData icon;
   final TextInputType? keyboardType;
-  const _Field({required this.ctrl, required this.label, required this.icon, this.keyboardType});
+  final Key? fieldKey;
+  const _Field({super.key, required this.ctrl, required this.label, required this.icon, this.keyboardType, this.fieldKey});
 
   @override
   Widget build(BuildContext context) => TextField(
+        key: fieldKey,
         controller: ctrl,
         keyboardType: keyboardType,
         decoration: InputDecoration(

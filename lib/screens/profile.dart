@@ -142,6 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 1)),
                         const Spacer(),
                         TextButton.icon(
+                          key: const Key('add_child_button'),
                           onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddChildScreen())),
                           icon: const Icon(Icons.add_rounded, size: 14, color: AppColors.teal),
                           label: const Text('Add Child', style: TextStyle(fontSize: 12, color: AppColors.teal, fontWeight: FontWeight.w700)),
@@ -260,6 +261,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppColors.muted))),
           ElevatedButton(
+            key: const Key('confirm_sign_out_button'),
             onPressed: () { Navigator.pop(ctx); context.read<ParentAuthProvider>().logout(); },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.coral),
             child: const Text('Sign Out'),

@@ -96,6 +96,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   Row(
                     children: [
                       IconButton(
+                        key: const Key('prev_month_button'),
                         onPressed: _prevMonth,
                         icon: const Icon(Icons.chevron_left, color: AppColors.text),
                         padding: EdgeInsets.zero,
@@ -104,6 +105,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       Text('${_months[_month]} $_year',
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.text)),
                       IconButton(
+                        key: const Key('next_month_button'),
                         onPressed: _nextMonth,
                         icon: const Icon(Icons.chevron_right, color: AppColors.text),
                         padding: EdgeInsets.zero,

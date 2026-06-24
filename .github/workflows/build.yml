@@ -125,6 +125,9 @@ jobs:
       - name: Analyze (dart type-check)
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
+      - name: Widget & unit tests
+        run: flutter test test/ --reporter=github
+
       - name: Build release APK
         run: flutter build apk --release --split-per-abi
 

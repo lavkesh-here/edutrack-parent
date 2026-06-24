@@ -236,6 +236,7 @@ class _BodyState extends State<_Body> {
                     ),
                   ),
                   ElevatedButton(
+                    key: const Key('pay_now_button'),
                     onPressed: () => _showPayDialog(context),
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
                     child: const Text('Pay Now', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),

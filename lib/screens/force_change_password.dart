@@ -80,11 +80,11 @@ class _State extends State<ForceChangePasswordScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _PwdField(label: 'TEMPORARY PASSWORD', ctrl: _currentCtrl, obscure: _obscure1, onToggle: () => setState(() => _obscure1 = !_obscure1), hint: 'Password from admin'),
+                    _PwdField(fieldKey: const Key('current_password_field'), label: 'TEMPORARY PASSWORD', ctrl: _currentCtrl, obscure: _obscure1, onToggle: () => setState(() => _obscure1 = !_obscure1), hint: 'Password from admin'),
                     const SizedBox(height: 16),
-                    _PwdField(label: 'NEW PASSWORD', ctrl: _newCtrl, obscure: _obscure2, onToggle: () => setState(() => _obscure2 = !_obscure2), hint: 'At least 6 characters'),
+                    _PwdField(fieldKey: const Key('new_password_field'), label: 'NEW PASSWORD', ctrl: _newCtrl, obscure: _obscure2, onToggle: () => setState(() => _obscure2 = !_obscure2), hint: 'At least 6 characters'),
                     const SizedBox(height: 16),
-                    _PwdField(label: 'CONFIRM PASSWORD', ctrl: _confirmCtrl, obscure: _obscure3, onToggle: () => setState(() => _obscure3 = !_obscure3), hint: 'Repeat new password', isDone: true, onSubmit: _submit),
+                    _PwdField(fieldKey: const Key('confirm_password_field'), label: 'CONFIRM PASSWORD', ctrl: _confirmCtrl, obscure: _obscure3, onToggle: () => setState(() => _obscure3 = !_obscure3), hint: 'Repeat new password', isDone: true, onSubmit: _submit),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
                       Container(
@@ -95,6 +95,7 @@ class _State extends State<ForceChangePasswordScreen> {
                     ],
                     const SizedBox(height: 20),
                     SizedBox(height: 50, child: ElevatedButton(
+                      key: const Key('set_password_button'),
                       onPressed: _loading ? null : _submit,
                       style: ElevatedButton.styleFrom(backgroundColor: AppColors.teal),
                       child: _loading
@@ -119,7 +120,8 @@ class _PwdField extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback? onSubmit;
 
-  const _PwdField({required this.label, required this.ctrl, required this.obscure, required this.onToggle, required this.hint, this.isDone = false, this.onSubmit});
+  final Key? fieldKey;
+  const _PwdField({required this.label, required this.ctrl, required this.obscure, required this.onToggle, required this.hint, this.isDone = false, this.onSubmit, this.fieldKey});
 
   @override
   Widget build(BuildContext context) => Column(
@@ -128,6 +130,7 @@ class _PwdField extends StatelessWidget {
       Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.5)),
       const SizedBox(height: 6),
       TextField(
+        key: fieldKey,
         controller: ctrl,
         obscureText: obscure,
         maxLength: 128,
