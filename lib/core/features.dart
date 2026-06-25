@@ -1,13 +1,13 @@
 import 'cache.dart';
 
 /// Typed accessor for school feature flags.
+/// Each accessor ANDs the school-admin flag (feature.*) with the SA platform flag (sa.*).
 /// Defaults to `true` (enabled) for any unknown key — new features are on by default.
 class FeatureFlags {
   final Map<String, bool> _flags;
 
   const FeatureFlags(this._flags);
 
-  /// All features enabled — used before flags are loaded.
   factory FeatureFlags.defaults() => const FeatureFlags({});
 
   factory FeatureFlags.fromJson(Map<String, dynamic> j) => FeatureFlags(
@@ -16,26 +16,28 @@ class FeatureFlags {
         ),
       );
 
-  // ── Teacher feature accessors ──────────────────────────────────────────────
+  // ── School-admin flags ANDed with SA platform flags ───────────────────────
 
-  bool get aiGenerate => _flags['feature.ai_generate'] ?? true;
-  bool get aiAnalysis => _flags['feature.ai_analysis'] ?? true;
-  bool get pdfExport => _flags['feature.pdf_export'] ?? true;
-  bool get diksha => _flags['feature.diksha'] ?? true;
-  bool get payroll => _flags['feature.payroll'] ?? true;
-  bool get visitorLog => _flags['feature.visitor_log'] ?? true;
+  bool get fees        => (_flags['feature.parent_fees'] ?? true) && (_flags['sa.fees_module']      ?? true);
+  bool get transport   => (_flags['feature.transport']   ?? true) && (_flags['sa.transport_module'] ?? true);
+  bool get circulars   =>  _flags['feature.circulars']   ?? true;
+  bool get documents   =>  _flags['feature.documents']   ?? true;
+  bool get workLogs    =>  _flags['feature.work_logs']   ?? true;
   bool get announcements => _flags['feature.announcements'] ?? true;
-  bool get circulars => _flags['feature.circulars'] ?? true;
-  bool get documents => _flags['feature.documents'] ?? true;
-  bool get fees => _flags['feature.parent_fees'] ?? true;
-  bool get transport => _flags['feature.transport'] ?? true;
-  bool get workLogs => _flags['feature.work_logs'] ?? true;
+
+  // ── SA-only flags ─────────────────────────────────────────────────────────
+
+  /// Whether the in-app AI support chat is available for this school.
+  bool get aiSupportChat => _flags['sa.ai_support_chat'] ?? true;
+
+  /// If false, the parent app is not enabled for this school — show a notice screen.
+  bool get parentAppEnabled => _flags['sa.parent_app'] ?? true;
 
   bool operator [](String key) => _flags[key] ?? true;
 
   Map<String, dynamic> toJson() => Map<String, dynamic>.from(_flags);
 
-  // ── Cache helpers ──────────────────────────────────────────────────────────
+  // ── Cache helpers ─────────────────────────────────────────────────────────
 
   static const _cacheKey = 'feature_flags';
   static const _cacheTtl = Duration(minutes: 30);

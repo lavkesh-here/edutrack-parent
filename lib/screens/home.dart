@@ -173,7 +173,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         body: _loadingProfile
             ? const Center(child: CircularProgressIndicator(color: AppColors.teal))
-            : IndexedStack(index: _idx, children: _screens),
+            : !auth.features.parentAppEnabled
+                ? _ParentAppDisabledScreen(onLogout: () => auth.logout())
+                : IndexedStack(index: _idx, children: _screens),
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -559,6 +561,7 @@ class _HomeTabState extends State<_HomeTab> {
   @override
   Widget build(BuildContext context) {
     final child = widget.child;
+    final flags = context.read<ParentAuthProvider>().features;
 
     return Scaffold(
       key: const Key('home_tab_content'),
@@ -633,13 +636,14 @@ class _HomeTabState extends State<_HomeTab> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28),
                     ),
-                  // Support chat
-                  IconButton(
-                    icon: const Icon(Icons.headset_mic_outlined, color: AppColors.text2),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportChatScreen())),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36),
-                  ),
+                  // Support chat — hidden if SA has disabled ai_support_chat
+                  if (flags.aiSupportChat)
+                    IconButton(
+                      icon: const Icon(Icons.headset_mic_outlined, color: AppColors.text2),
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SupportChatScreen())),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36),
+                    ),
                   // Notification bell
                   if (widget.child != null)
                     Stack(
@@ -1059,6 +1063,61 @@ class _NavItem extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when SA has disabled the parent app for this school.
+class _ParentAppDisabledScreen extends StatelessWidget {
+  final VoidCallback onLogout;
+  const _ParentAppDisabledScreen({required this.onLogout});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: AppColors.tealLight,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.school_outlined, color: AppColors.teal, size: 36),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Parent App Not Available',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.text),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Your school has not enabled the parent app yet. Please contact your school administrator for assistance.',
+                style: TextStyle(fontSize: 14, color: AppColors.muted, height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 36),
+              OutlinedButton(
+                onPressed: onLogout,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.muted,
+                  side: const BorderSide(color: AppColors.border),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Sign out'),
+              ),
+            ],
+          ),
         ),
       ),
     );
