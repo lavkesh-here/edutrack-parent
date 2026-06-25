@@ -54,6 +54,20 @@ class EduTrackParentApp extends StatelessWidget {
       title: 'EduTrack Parent',
       theme: buildTheme(),
       debugShowCheckedModeBanner: false,
+      // Clamp system font scale to 1.2× max — prevents layout overflow for
+      // parents using larger accessibility font sizes.
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: mq.textScaler.clamp(
+              minScaleFactor: 1.0,
+              maxScaleFactor: 1.2,
+            ),
+          ),
+          child: child!,
+        );
+      },
       routes: {
         '/force-change-password': (_) => const ForceChangePasswordScreen(),
       },
