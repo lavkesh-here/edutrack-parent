@@ -25,6 +25,7 @@ import 'timetable.dart';
 import 'upcoming_tests.dart';
 import 'child_summary.dart';
 import 'search.dart';
+import 'support_chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -166,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onProfile: () { setState(() => _idx = 4); Navigator.pop(context); },
           onSchoolContacts: () { Navigator.pop(context); _navigate(SchoolContactsScreen(children: _children)); },
           onSettings: () { Navigator.pop(context); _navigate(const SettingsScreen()); },
+          onChat: () { Navigator.pop(context); _navigate(const SupportChatScreen()); },
           onFaq: () { Navigator.pop(context); _navigate(const FAQScreen()); },
           onAbout: () { Navigator.pop(context); _navigate(const AboutScreen()); },
           onLogout: () async { Navigator.pop(context); await auth.logout(); },
@@ -207,6 +209,7 @@ class _AppDrawer extends StatelessWidget {
   final VoidCallback onProfile;
   final VoidCallback onSchoolContacts;
   final VoidCallback onSettings;
+  final VoidCallback onChat;
   final VoidCallback onFaq;
   final VoidCallback onAbout;
   final VoidCallback onLogout;
@@ -217,6 +220,7 @@ class _AppDrawer extends StatelessWidget {
     required this.onProfile,
     required this.onSchoolContacts,
     required this.onSettings,
+    required this.onChat,
     required this.onFaq,
     required this.onAbout,
     required this.onLogout,
@@ -265,6 +269,7 @@ class _AppDrawer extends StatelessWidget {
                   _DrawerItem(icon: Icons.school_outlined, label: 'School Contacts', onTap: onSchoolContacts),
                   const Divider(indent: 16, endIndent: 16),
                   _DrawerItem(icon: Icons.settings_outlined, label: 'Settings', onTap: onSettings),
+                  _DrawerItem(icon: Icons.chat_bubble_outline, label: 'Ask Support', onTap: onChat),
                   _DrawerItem(icon: Icons.help_outline, label: 'FAQ', onTap: onFaq),
                   _DrawerItem(icon: Icons.info_outline, label: 'About Us', onTap: onAbout),
                 ],

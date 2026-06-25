@@ -694,6 +694,19 @@ class ParentApiClient {
     return fresh;
   }
 
+  // ── Support chat ───────────────────────────────────────────────────────────
+
+  static Future<String> supportChat({
+    required String message,
+    required List<Map<String, String>> history,
+  }) async {
+    final data = await _post('/api/v1/parent/support/chat', {
+      'message': message,
+      'history': history,
+    });
+    return data['reply'] as String;
+  }
+
 }  // end ParentApiClient
 
 class ApiError implements Exception {
