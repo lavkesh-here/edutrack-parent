@@ -115,7 +115,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
             decoration: BoxDecoration(
               color: AppColors.tealLight,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.teal.withValues(alpha: 0.3)),
+              border: Border.all(color: AppColors.teal.withOpacity(0.3)),
             ),
             child: const Row(
               children: [
