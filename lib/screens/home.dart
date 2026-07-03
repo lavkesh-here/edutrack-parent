@@ -547,7 +547,6 @@ class _HomeTabState extends State<_HomeTab> {
         _Tile('📄', 'Documents', AppColors.sky, AppColors.skyLight, () => _push(DocumentsScreen(child: child)), 'PARENT CORNER'),
       if (flags.transport)
         _Tile('🚌', 'Transport', AppColors.coral, AppColors.coralLight, () => _push(TransportScreen(child: child)), 'OTHERS'),
-      _Tile('🔍', 'Search', AppColors.teal, AppColors.tealLight, () => _push(SearchScreen(child: child)), 'ACCOUNT'),
       _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen()), 'ACCOUNT'),
     ];
   }
@@ -635,6 +634,14 @@ class _HomeTabState extends State<_HomeTab> {
                           : null,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28),
+                    ),
+                  // Global search
+                  if (child != null)
+                    IconButton(
+                      icon: const Icon(Icons.search, color: AppColors.text2),
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(child: child))),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36),
                     ),
                   // Support chat — hidden if SA has disabled ai_support_chat
                   if (flags.aiSupportChat)
