@@ -694,6 +694,13 @@ class ParentApiClient {
     return fresh;
   }
 
+  // ── Student Full Report Card ───────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getStudentFullReport(String studentId) async {
+    return (await _get('/api/v1/parent/child/$studentId/full-report'))
+        as Map<String, dynamic>;
+  }
+
   // ── Support chat ───────────────────────────────────────────────────────────
 
   static Future<String> supportChat({

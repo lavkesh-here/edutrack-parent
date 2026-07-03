@@ -30,7 +30,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 4, vsync: this);
+    _tab = TabController(length: 5, vsync: this);
     _photoUrl = widget.child.photoUrl;
     _load();
   }
@@ -159,6 +159,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
           _attendanceTab(),
           _testsTab(),
           _workLogTab(),
+          _ReportCardTab(studentId: widget.child.studentId),
         ],
       ),
     );
@@ -377,6 +378,7 @@ class _StickyTabBar extends SliverPersistentHeaderDelegate {
                 Tab(text: 'Attendance'),
                 Tab(text: 'Tests'),
                 Tab(text: 'Work Log'),
+                Tab(text: 'Report Card'),
               ],
             ),
           ),
@@ -520,6 +522,293 @@ class _TestRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ── Report Card Tab ───────────────────────────────────────────────────────────
+
+class _ReportCardTab extends StatefulWidget {
+  final String studentId;
+  const _ReportCardTab({required this.studentId});
+
+  @override
+  State<_ReportCardTab> createState() => _ReportCardTabState();
+}
+
+class _ReportCardTabState extends State<_ReportCardTab>
+    with AutomaticKeepAliveClientMixin {
+  Map<String, dynamic>? _data;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final r = await ParentApiClient.getStudentFullReport(widget.studentId);
+      if (mounted) setState(() { _data = r; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.teal));
+    if (_error != null) return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('⚠️', style: TextStyle(fontSize: 32)),
+            const SizedBox(height: 8),
+            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _load, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
+
+    final reportJson = _data?['report_json'] as Map<String, dynamic>?;
+    final isStale = _data?['is_stale'] as bool? ?? true;
+
+    if (reportJson == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('📋', style: TextStyle(fontSize: 40)),
+              SizedBox(height: 12),
+              Text('No report card available yet.\nYour child\'s teacher will generate one.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted, fontSize: 13)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.teal,
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Stale notice
+          if (isStale)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppColors.amber.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.amber.withOpacity(0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Text('⚠️ ', style: TextStyle(fontSize: 14)),
+                  Expanded(child: Text('Report may be outdated — ask teacher to regenerate.',
+                      style: TextStyle(fontSize: 12, color: AppColors.text2))),
+                ],
+              ),
+            ),
+
+          // Level & trend hero
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [AppColors.teal, Color(0xFF0891B2)]),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Holistic Report Card', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    _RcBadge(reportJson['overall_level'] as String? ?? '—'),
+                    const SizedBox(width: 10),
+                    _TrendBadge(reportJson['overall_trend'] as String? ?? ''),
+                  ],
+                ),
+                if ((reportJson['summary'] as String?)?.isNotEmpty == true) ...[
+                  const SizedBox(height: 10),
+                  Text(reportJson['summary'] as String,
+                      style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.5)),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Strengths
+          const Text('Strengths', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 6),
+          ...(reportJson['strengths'] as List<dynamic>? ?? []).map((s) =>
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('✅ ', style: TextStyle(fontSize: 13)),
+                  Expanded(child: Text(s.toString(), style: const TextStyle(fontSize: 13))),
+                ],
+              ),
+            ),
+          ),
+
+          // Focus Areas
+          const SizedBox(height: 16),
+          const Text('Areas to Work On', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 6),
+          ...(reportJson['focus_areas'] as List<dynamic>? ?? []).map((f) {
+            final fa = f as Map<String, dynamic>;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(fa['area'] as String? ?? '—', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  if ((fa['observation'] as String?)?.isNotEmpty == true) ...[
+                    const SizedBox(height: 4),
+                    Text(fa['observation'] as String, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                  ],
+                  if ((fa['action'] as String?)?.isNotEmpty == true) ...[
+                    const SizedBox(height: 4),
+                    Text('What to do: ${fa['action']}',
+                        style: const TextStyle(color: AppColors.teal, fontSize: 12, fontWeight: FontWeight.w500)),
+                  ],
+                ],
+              ),
+            );
+          }),
+
+          // Subject Performance
+          const SizedBox(height: 16),
+          const Text('Subject Performance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 6),
+          ...(reportJson['subject_feedback'] as List<dynamic>? ?? []).map((sf) {
+            final s = sf as Map<String, dynamic>;
+            final avg = (s['avg_pct'] as num?)?.toDouble() ?? 0;
+            Color barColor = const Color(0xFF22C55E);
+            if (avg < 60) barColor = const Color(0xFFF43F5E);
+            else if (avg < 80) barColor = const Color(0xFFFBBF24);
+            else if (avg < 90) barColor = AppColors.teal;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: Text(s['subject'] as String? ?? '—', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                      Text('${avg.toStringAsFixed(1)}%', style: TextStyle(color: barColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: (avg / 100).clamp(0.0, 1.0),
+                      backgroundColor: AppColors.border,
+                      valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                      minHeight: 5,
+                    ),
+                  ),
+                  if ((s['feedback'] as String?)?.isNotEmpty == true) ...[
+                    const SizedBox(height: 6),
+                    Text(s['feedback'] as String, style: const TextStyle(color: AppColors.muted, fontSize: 12, height: 1.4)),
+                  ],
+                ],
+              ),
+            );
+          }),
+
+          // Parent Message
+          if ((reportJson['parent_message'] as String?)?.isNotEmpty == true) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.teal.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.teal.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('💬 Message for You', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.teal)),
+                  const SizedBox(height: 8),
+                  Text(reportJson['parent_message'] as String,
+                      style: const TextStyle(fontSize: 13, height: 1.5)),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+class _RcBadge extends StatelessWidget {
+  const _RcBadge(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.2),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.white.withOpacity(0.4)),
+    ),
+    child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+  );
+}
+
+class _TrendBadge extends StatelessWidget {
+  const _TrendBadge(this.trend);
+  final String trend;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (trend) {
+      'improving' => '↑ Improving',
+      'declining' => '↓ Declining',
+      'stable' => '→ Stable',
+      _ => '— Getting Started',
+    };
+    return Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600));
   }
 }
 
