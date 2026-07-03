@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -85,18 +86,50 @@ class _Root extends StatefulWidget {
 
 class _RootState extends State<_Root> with WidgetsBindingObserver {
   DateTime? _pausedAt;
+  Timer? _inactivityTimer;
+  ParentAuthProvider? _authRef;
+  static const _inactivityDuration = Duration(minutes: 5);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _setupFcm();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _authRef = context.read<ParentAuthProvider>();
+      _authRef!.addListener(_handleAuthChange);
+      _handleAuthChange();
+    });
   }
 
   @override
   void dispose() {
+    _inactivityTimer?.cancel();
+    _authRef?.removeListener(_handleAuthChange);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _handleAuthChange() {
+    if (!mounted || _authRef == null) return;
+    if (_authRef!.isLoggedIn && !_authRef!.isLocked) {
+      _resetInactivityTimer();
+    } else {
+      _inactivityTimer?.cancel();
+    }
+  }
+
+  void _resetInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(_inactivityDuration, _onInactivity);
+  }
+
+  Future<void> _onInactivity() async {
+    if (!mounted || _authRef == null) return;
+    if (_authRef!.isLoggedIn && !_authRef!.isLocked && await _authRef!.isBiometricEnabled) {
+      _authRef!.lockApp();
+    }
   }
 
   @override
@@ -215,7 +248,11 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
 
     if (!auth.isLoggedIn) return const LoginScreen();
     if (auth.isLocked) return const _BiometricLockScreen();
-    return const HomeScreen();
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _resetInactivityTimer(),
+      child: const HomeScreen(),
+    );
   }
 }
 
