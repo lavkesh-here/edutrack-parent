@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 
@@ -16,6 +18,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   bool _loading = false;
 
   static const _maxChars = 500;
+  static const _prefsKey = 'support_chat_cache';
   static List<_Msg> _cache = [];
 
   @override
@@ -23,7 +26,29 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     super.initState();
     if (_cache.isNotEmpty) {
       _messages.addAll(_cache);
+    } else {
+      _loadFromPrefs();
     }
+  }
+
+  Future<void> _loadFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_prefsKey);
+    if (raw == null) return;
+    try {
+      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+      final msgs = list.map((m) => _Msg(role: m['role'] as String, text: m['text'] as String)).toList();
+      if (mounted && msgs.isNotEmpty) {
+        setState(() => _messages.addAll(msgs));
+        _cache = msgs;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveToPrefs(List<_Msg> msgs) async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = msgs.map((m) => {'role': m.role, 'text': m.text}).toList();
+    await prefs.setString(_prefsKey, jsonEncode(data));
   }
 
   @override
@@ -61,6 +86,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
         setState(() {
           _messages.add(_Msg(role: 'model', text: reply));
           _cache = _messages.takeLast(2).toList();
+          _saveToPrefs(_cache);
         });
         _scrollToBottom();
       }
@@ -93,6 +119,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   void _clearChat() {
     setState(() => _messages.clear());
     _cache = [];
+    SharedPreferences.getInstance().then((p) => p.remove(_prefsKey));
   }
 
   @override
