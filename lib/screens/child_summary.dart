@@ -819,36 +819,98 @@ class _WorkLogRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAck = item.ackStatus == 'acknowledged' || item.ackStatus == 'completed';
+    final dotColor = switch (item.logType) {
+      'homework' => AppColors.coral,
+      'note'     => AppColors.amber,
+      _          => AppColors.sky,
+    };
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 6, height: 6,
-            decoration: BoxDecoration(
-              color: switch (item.logType) { 'homework' => AppColors.coral, 'note' => AppColors.amber, _ => AppColors.sky },
-              shape: BoxShape.circle,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 6, height: 6,
+                decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(item.description, style: const TextStyle(fontSize: 12, color: AppColors.text), maxLines: 2, overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: (isAck ? AppColors.teal : AppColors.muted).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isAck ? '✓' : 'Pending',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: isAck ? AppColors.teal : AppColors.muted),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(item.description, style: const TextStyle(fontSize: 12, color: AppColors.text), maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: (isAck ? AppColors.teal : AppColors.muted).withOpacity(0.12),
-              borderRadius: BorderRadius.circular(6),
+          if (item.imageUrls.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: item.imageUrls.map((url) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => _openImageViewer(context, item.imageUrls, item.imageUrls.indexOf(url)),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      url, width: 56, height: 56, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                          width: 56, height: 56, color: AppColors.border,
+                          child: const Icon(Icons.broken_image_outlined, size: 18, color: AppColors.muted)),
+                    ),
+                  ),
+                ),
+              )).toList(),
             ),
-            child: Text(
-              isAck ? '✓' : 'Pending',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: isAck ? AppColors.teal : AppColors.muted),
-            ),
-          ),
+          ],
         ],
       ),
     );
   }
+}
+
+void _openImageViewer(BuildContext context, List<String> urls, int initialIndex) {
+  showDialog(
+    context: context,
+    builder: (_) => Dialog.fullscreen(
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: PageController(initialPage: initialIndex),
+            itemCount: urls.length,
+            itemBuilder: (_, i) => InteractiveViewer(
+              child: Center(
+                child: Image.network(urls[i], fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 48, color: AppColors.muted)),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 40,
+            right: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                child: const Icon(Icons.close, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

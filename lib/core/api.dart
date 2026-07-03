@@ -193,6 +193,7 @@ class WorkLogItem {
   final String? submissionId;
   final String ackStatus; // pending | seen | completed | incomplete
   final String? parentNote;
+  final List<String> imageUrls;
 
   const WorkLogItem({
     required this.id,
@@ -206,6 +207,7 @@ class WorkLogItem {
     this.submissionId,
     this.ackStatus = 'pending',
     this.parentNote,
+    this.imageUrls = const [],
   });
 
   factory WorkLogItem.fromJson(Map<String, dynamic> j) => WorkLogItem(
@@ -220,6 +222,10 @@ class WorkLogItem {
         submissionId: j['submission_id']?.toString(),
         ackStatus: j['ack_status'] as String? ?? 'pending',
         parentNote: j['parent_note'] as String?,
+        imageUrls: (j['image_urls'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [],
       );
 }
 
