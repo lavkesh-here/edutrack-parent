@@ -153,6 +153,8 @@ class TestResult {
   final bool isAbsent;
   final String? remarks;
   final String? scheduledDate;
+  final int? rank;
+  final int? totalStudents;
 
   const TestResult({
     required this.id,
@@ -165,6 +167,8 @@ class TestResult {
     required this.isAbsent,
     this.remarks,
     this.scheduledDate,
+    this.rank,
+    this.totalStudents,
   });
 
   factory TestResult.fromJson(Map<String, dynamic> j) => TestResult(
@@ -178,6 +182,8 @@ class TestResult {
         isAbsent: j['is_absent'] as bool? ?? false,
         remarks: j['remarks'] as String?,
         scheduledDate: j['scheduled_date'] as String?,
+        rank: (j['rank'] as num?)?.toInt(),
+        totalStudents: (j['total_students'] as num?)?.toInt(),
       );
 }
 

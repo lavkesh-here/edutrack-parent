@@ -472,7 +472,11 @@ class _InfoRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(width: 120, child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted))),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 140),
+              child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+            ),
+            const SizedBox(width: 8),
             Expanded(child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.text))),
           ],
         ),
@@ -520,6 +524,17 @@ class _TestRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(color: pctColor.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
               child: Text('${pct.round()}%', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: pctColor)),
+            ),
+          ],
+          if (test.rank != null && test.totalStudents != null && test.totalStudents! > 1) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: AppColors.violetLight, borderRadius: BorderRadius.circular(6)),
+              child: Text(
+                '#${test.rank} / ${test.totalStudents}',
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.violet),
+              ),
             ),
           ],
         ],
