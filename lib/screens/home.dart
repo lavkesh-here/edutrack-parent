@@ -20,8 +20,6 @@ import 'fees.dart';
 import 'attender.dart';
 import 'teachers.dart';
 import 'circulars.dart';
-import 'documents.dart';
-import 'timetable.dart';
 import 'upcoming_tests.dart';
 import 'child_summary.dart';
 import 'search.dart';
@@ -141,12 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return PopScope(
       canPop: false,
       onPopInvoked: (_) {
-        // Clear search if active
-        final tabState = _homeTabKey.currentState;
-        if (tabState != null && tabState._search.isNotEmpty) {
-          tabState._clearSearch();
-          return;
-        }
         if (_idx != 0) { setState(() => _idx = 0); return; }
         final now = DateTime.now();
         if (_lastBackPress == null || now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
@@ -183,16 +175,18 @@ class _HomeScreenState extends State<HomeScreen> {
             boxShadow: [BoxShadow(color: Color(0x1014B8A6), blurRadius: 20, offset: Offset(0, -4))],
           ),
           child: SafeArea(
-            child: SizedBox(
-              height: 62,
-              child: Row(
-                children: [
-                  _NavItem(key: const Key('nav_home'), icon: '🏠', label: 'Home', index: 0, current: _idx, onTap: (i) => setState(() => _idx = i)),
-                  _NavItem(key: const Key('nav_attendance'), icon: '📋', label: 'Attendance', index: 1, current: _idx, onTap: (i) => setState(() => _idx = i)),
-                  _NavItem(key: const Key('nav_results'), icon: '📊', label: 'Results', index: 2, current: _idx, onTap: (i) => setState(() => _idx = i)),
-                  _NavItem(key: const Key('nav_work_log'), icon: '📚', label: 'Work Log', index: 3, current: _idx, onTap: (i) => setState(() => _idx = i)),
-                  _NavItem(key: const Key('nav_profile'), icon: '👤', label: 'Profile', index: 4, current: _idx, onTap: (i) => setState(() => _idx = i)),
-                ],
+            child: MediaQuery.withNoTextScaling(
+              child: SizedBox(
+                height: 62,
+                child: Row(
+                  children: [
+                    _NavItem(key: const Key('nav_home'), icon: '🏠', label: 'Home', index: 0, current: _idx, onTap: (i) => setState(() => _idx = i)),
+                    _NavItem(key: const Key('nav_attendance'), icon: '📋', label: 'Attendance', index: 1, current: _idx, onTap: (i) => setState(() => _idx = i)),
+                    _NavItem(key: const Key('nav_results'), icon: '📊', label: 'Results', index: 2, current: _idx, onTap: (i) => setState(() => _idx = i)),
+                    _NavItem(key: const Key('nav_work_log'), icon: '📚', label: 'Work Log', index: 3, current: _idx, onTap: (i) => setState(() => _idx = i)),
+                    _NavItem(key: const Key('nav_profile'), icon: '👤', label: 'Profile', index: 4, current: _idx, onTap: (i) => setState(() => _idx = i)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -338,22 +332,9 @@ class _HomeTabState extends State<_HomeTab> {
   bool _loading = true;
   List<ParentNotification> _recentNotifs = [];
   int _unreadCount = 0;
-  String _search = '';
-  final _searchCtrl = TextEditingController();
   String? _openSection;
   bool _bioAvailable = false;
   bool _bioEnabled = false;
-
-  void _clearSearch() {
-    _searchCtrl.clear();
-    setState(() => _search = '');
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
 
   @override
   void initState() {
@@ -523,40 +504,6 @@ class _HomeTabState extends State<_HomeTab> {
         child: Center(child: Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: fg))),
       );
 
-  List<_Tile> get _allTiles {
-    final child = widget.child;
-    if (child == null) return [];
-    final flags = context.read<ParentAuthProvider>().features;
-    return [
-      _Tile('📋', 'Attendance', AppColors.teal, AppColors.tealLight, () => widget.onSwitchTab(1), 'ACADEMICS'),
-      _Tile('📊', 'Results', AppColors.violet, AppColors.violetLight, () => widget.onSwitchTab(2), 'ACADEMICS'),
-      _Tile('📅', 'Upcoming Tests', AppColors.sky, AppColors.skyLight, () => _push(UpcomingTestsScreen(child: child)), 'ACADEMICS'),
-      if (flags.workLogs)
-        _Tile('📚', 'Work Log', AppColors.sun, AppColors.sunLight, () => widget.onSwitchTab(3), 'ACADEMICS'),
-      _Tile('🔔', 'Notifications', AppColors.sky, AppColors.skyLight, () => _push(NotificationsScreen(child: child)), 'COMMUNICATION'),
-      if (flags.circulars)
-        _Tile('📋', 'Circulars', AppColors.teal, AppColors.tealLight, () => _push(CircularsScreen(child: child)), 'COMMUNICATION'),
-      _Tile('🏫', 'School Contacts', AppColors.teal, AppColors.tealLight, () => _push(SchoolContactsScreen(children: widget.children)), 'SCHOOL INFO'),
-      _Tile('🎓', 'Student Profile', AppColors.violet, AppColors.violetLight, () => _push(StudentProfileScreen(child: child)), 'SCHOOL INFO'),
-      _Tile('👩‍🏫', 'Teachers', AppColors.sky, AppColors.skyLight, () => _push(TeachersScreen(child: child)), 'SCHOOL INFO'),
-      _Tile('📅', 'Timetable', AppColors.teal, AppColors.tealLight, () => _push(TimetableScreen(studentId: child.studentId)), 'SCHOOL INFO'),
-      if (flags.fees)
-        _Tile('💰', 'Fees', AppColors.sun, AppColors.sunLight, () => _push(FeesScreen(child: child)), 'PARENT CORNER'),
-      _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight, () => _push(AttenderScreen(child: child)), 'PARENT CORNER'),
-      if (flags.documents)
-        _Tile('📄', 'Documents', AppColors.sky, AppColors.skyLight, () => _push(DocumentsScreen(child: child)), 'PARENT CORNER'),
-      if (flags.transport)
-        _Tile('🚌', 'Transport', AppColors.coral, AppColors.coralLight, () => _push(TransportScreen(child: child)), 'OTHERS'),
-      _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen()), 'ACCOUNT'),
-    ];
-  }
-
-  List<_Tile> get _searchResults {
-    final q = _search.toLowerCase();
-    return _allTiles.where((t) =>
-        t.label.toLowerCase().contains(q) || t.section.toLowerCase().contains(q)).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
     final child = widget.child;
@@ -635,14 +582,6 @@ class _HomeTabState extends State<_HomeTab> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28),
                     ),
-                  // Global search
-                  if (child != null)
-                    IconButton(
-                      icon: const Icon(Icons.search, color: AppColors.text2),
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(child: child))),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36),
-                    ),
                   // Support chat — hidden if SA has disabled ai_support_chat
                   if (flags.aiSupportChat)
                     IconButton(
@@ -706,61 +645,31 @@ class _HomeTabState extends State<_HomeTab> {
                             ] else ...[
                               const SizedBox(height: 12),
 
-                              // Search bar
+                              // Global search bar — taps into SearchScreen
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: TextField(
-                                  controller: _searchCtrl,
-                                  maxLength: 10,
-                                  onChanged: (v) => setState(() => _search = v),
-                                  decoration: InputDecoration(
-                                    hintText: 'Search features...',
-                                    hintStyle: const TextStyle(fontSize: 13, color: AppColors.muted),
-                                    counterText: '',
-                                    prefixIcon: const Icon(Icons.search, color: AppColors.muted, size: 20),
-                                    suffixIcon: _search.isNotEmpty
-                                        ? IconButton(
-                                            icon: const Icon(Icons.close, size: 18, color: AppColors.muted),
-                                            onPressed: _clearSearch,
-                                          )
-                                        : null,
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
-                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                                child: GestureDetector(
+                                  onTap: () => _push(SearchScreen(child: child)),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppColors.border),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        Icon(Icons.search, color: AppColors.muted, size: 20),
+                                        SizedBox(width: 12),
+                                        Text('Search features, circulars, and more...',
+                                            style: TextStyle(fontSize: 13, color: AppColors.muted)),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 12),
 
-                              if (_search.isNotEmpty) ...[
-                                // Search results list
-                                if (_searchResults.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.all(24),
-                                    child: Center(child: Text('No features found', style: TextStyle(color: AppColors.muted))),
-                                  )
-                                else
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const SectionHeader('SEARCH RESULTS'),
-                                        GridView.count(
-                                          crossAxisCount: 3,
-                                          shrinkWrap: true,
-                                          physics: const NeverScrollableScrollPhysics(),
-                                          crossAxisSpacing: 10,
-                                          mainAxisSpacing: 10,
-                                          childAspectRatio: 1.0,
-                                          children: _searchResults.map((t) => _GridTile(tile: t)).toList(),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ] else ...[
                                 // Attendance quick stats
                                 if (_attendance != null)
                                   Padding(
@@ -844,7 +753,6 @@ class _HomeTabState extends State<_HomeTab> {
                                         expanded: _openSection == 'ACCOUNT',
                                         onToggle: () => setState(() => _openSection = _openSection == 'ACCOUNT' ? null : 'ACCOUNT'),
                                         tiles: [
-                                          _Tile('🔍', 'Search', AppColors.teal, AppColors.tealLight, () => _push(SearchScreen(child: child)), 'ACCOUNT'),
                                           _Tile('⚙️', 'Settings', AppColors.muted, AppColors.bg, () => _push(const SettingsScreen()), 'ACCOUNT'),
                                         ]),
                                       if (_bioAvailable) ...[
@@ -874,7 +782,6 @@ class _HomeTabState extends State<_HomeTab> {
                                     ],
                                   ),
                                 ),
-                              ],
                               const SizedBox(height: 24),
                             ],
                           ],
