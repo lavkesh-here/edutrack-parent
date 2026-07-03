@@ -707,6 +707,20 @@ class ParentApiClient {
         as Map<String, dynamic>;
   }
 
+  // ── Report card PDF ────────────────────────────────────────────────────────
+
+  static Future<String> exportReportCardToken(String studentId) async {
+    final data = await _post('/api/v1/parent/child/$studentId/full-report/export-token', {});
+    return data['token'] as String;
+  }
+
+  // ── Child syllabus ─────────────────────────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getChildSyllabus(String studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/syllabus');
+    return (data as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
   // ── Support chat ───────────────────────────────────────────────────────────
 
   static Future<String> supportChat({

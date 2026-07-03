@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
@@ -30,7 +31,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 5, vsync: this);
+    _tab = TabController(length: 6, vsync: this);
     _photoUrl = widget.child.photoUrl;
     _load();
   }
@@ -160,6 +161,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
           _testsTab(),
           _workLogTab(),
           _ReportCardTab(studentId: widget.child.studentId),
+          _SyllabusTab(studentId: widget.child.studentId),
         ],
       ),
     );
@@ -379,6 +381,7 @@ class _StickyTabBar extends SliverPersistentHeaderDelegate {
                 Tab(text: 'Tests'),
                 Tab(text: 'Work Log'),
                 Tab(text: 'Report Card'),
+                Tab(text: 'Syllabus'),
               ],
             ),
           ),
@@ -540,6 +543,7 @@ class _ReportCardTabState extends State<_ReportCardTab>
   Map<String, dynamic>? _data;
   bool _loading = true;
   String? _error;
+  bool _pdfLoading = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -557,6 +561,23 @@ class _ReportCardTabState extends State<_ReportCardTab>
       if (mounted) setState(() { _data = r; _loading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _downloadPdf() async {
+    if (_pdfLoading) return;
+    setState(() => _pdfLoading = true);
+    try {
+      final base = await ParentApiClient.getBaseUrl();
+      final token = await ParentApiClient.exportReportCardToken(widget.studentId);
+      final url = Uri.parse('$base/api/v1/parent/child/${widget.studentId}/full-report/pdf?token=$token');
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        if (mounted) showSnack(context, 'Could not open PDF', error: true);
+      }
+    } catch (_) {
+      if (mounted) showSnack(context, 'Failed to download PDF', error: true);
+    } finally {
+      if (mounted) setState(() => _pdfLoading = false);
     }
   }
 
@@ -607,6 +628,25 @@ class _ReportCardTabState extends State<_ReportCardTab>
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // PDF download button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _pdfLoading ? null : _downloadPdf,
+              icon: _pdfLoading
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.teal))
+                  : const Icon(Icons.download_outlined, size: 16),
+              label: Text(_pdfLoading ? 'Preparing PDF…' : 'Download PDF', style: const TextStyle(fontSize: 13)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.teal,
+                side: const BorderSide(color: AppColors.teal),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
           // Stale notice
           if (isStale)
             Container(
@@ -879,6 +919,219 @@ class _WorkLogRow extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Syllabus Tab ──────────────────────────────────────────────────────────────
+
+class _SyllabusTab extends StatefulWidget {
+  final String studentId;
+  const _SyllabusTab({required this.studentId});
+
+  @override
+  State<_SyllabusTab> createState() => _SyllabusTabState();
+}
+
+class _SyllabusTabState extends State<_SyllabusTab>
+    with AutomaticKeepAliveClientMixin {
+  List<Map<String, dynamic>> _subjects = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final data = await ParentApiClient.getChildSyllabus(widget.studentId);
+      if (mounted) setState(() { _subjects = data; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.teal));
+    if (_error != null) return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('⚠️', style: TextStyle(fontSize: 32)),
+            const SizedBox(height: 8),
+            Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _load, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
+    if (_subjects.isEmpty) return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('📖', style: TextStyle(fontSize: 36)),
+          SizedBox(height: 12),
+          Text('No syllabus data yet.', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+        ],
+      ),
+    );
+    return RefreshIndicator(
+      color: AppColors.teal,
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _subjects.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, i) => _SyllabusSubjectCard(subject: _subjects[i]),
+      ),
+    );
+  }
+}
+
+class _SyllabusSubjectCard extends StatefulWidget {
+  final Map<String, dynamic> subject;
+  const _SyllabusSubjectCard({required this.subject});
+
+  @override
+  State<_SyllabusSubjectCard> createState() => _SyllabusSubjectCardState();
+}
+
+class _SyllabusSubjectCardState extends State<_SyllabusSubjectCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final chapters = (widget.subject['chapters'] as List<dynamic>? ?? [])
+        .cast<Map<String, dynamic>>();
+    final total = (widget.subject['total'] as num?)?.toInt() ?? chapters.length;
+    final done = (widget.subject['completed'] as num?)?.toInt() ?? 0;
+    final inProg = (widget.subject['in_progress'] as num?)?.toInt() ?? 0;
+    final pct = total > 0 ? done / total : 0.0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.subject['subject_name'] as String? ?? '—',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.text),
+                        ),
+                      ),
+                      Text(
+                        '$done/$total',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.muted),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 18, color: AppColors.muted,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: pct,
+                      backgroundColor: AppColors.border,
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.teal),
+                      minHeight: 5,
+                    ),
+                  ),
+                  if (done > 0 || inProg > 0) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        if (done > 0) _SyllabusPill('$done done', AppColors.teal, AppColors.tealLight),
+                        if (done > 0 && inProg > 0) const SizedBox(width: 6),
+                        if (inProg > 0) _SyllabusPill('$inProg in progress', AppColors.amber, AppColors.amberLight),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (_expanded && chapters.isNotEmpty) ...[
+            const Divider(height: 1, color: AppColors.border),
+            ...chapters.map((c) => _SyllabusChapterRow(chapter: c)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SyllabusChapterRow extends StatelessWidget {
+  final Map<String, dynamic> chapter;
+  const _SyllabusChapterRow({required this.chapter});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = chapter['status'] as String? ?? 'not_started';
+    final icon = switch (status) {
+      'completed'   => '✅',
+      'in_progress' => '🔄',
+      _             => '○',
+    };
+    final textColor = status == 'not_started' ? AppColors.muted : AppColors.text;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              chapter['name'] as String? ?? '—',
+              style: TextStyle(fontSize: 12, color: textColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SyllabusPill extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color bg;
+  const _SyllabusPill(this.label, this.color, this.bg);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+    child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+  );
 }
 
 void _openImageViewer(BuildContext context, List<String> urls, int initialIndex) {
