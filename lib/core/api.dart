@@ -724,6 +724,7 @@ class ParentApiClient {
 
   static Future<List<Map<String, dynamic>>> getChildSyllabus(String studentId) async {
     final data = await _get('/api/v1/parent/child/$studentId/syllabus');
+    if (data == null) return [];
     return (data as List<dynamic>).cast<Map<String, dynamic>>();
   }
 
