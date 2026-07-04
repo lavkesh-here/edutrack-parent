@@ -6,6 +6,25 @@ import '../core/api.dart';
 import '../core/theme.dart';
 import 'force_change_password.dart';
 
+// ── Build flavour ─────────────────────────────────────────────────────────────
+// Pass --dart-define=APP_ENV=production at build time for store releases.
+// Dev builds show an env picker; production builds hide it entirely.
+
+const bool _kIsProdBuild =
+    String.fromEnvironment('APP_ENV', defaultValue: 'dev') == 'production';
+
+class _ServerEnv {
+  final String label;
+  final String url;
+  const _ServerEnv(this.label, this.url);
+}
+
+const _kKnownServers = <_ServerEnv>[
+  _ServerEnv('Production', ParentApiClient.defaultBaseUrl),
+  // Add staging here when available:
+  // _ServerEnv('Staging', 'https://edutrack-staging.run.app'),
+];
+
 // ── Step 1: School code ───────────────────────────────────────────────────────
 
 class LoginScreen extends StatefulWidget {
@@ -19,14 +38,23 @@ class _LoginScreenState extends State<LoginScreen> {
   final _codeCtrl = TextEditingController();
   bool _loading = false;
   String? _error;
-  bool _isProd = true;
+  _ServerEnv _selectedEnv = _kKnownServers[0];
 
   @override
   void initState() {
     super.initState();
-    ParentApiClient.getBaseUrl().then((url) {
-      if (mounted) setState(() => _isProd = url == ParentApiClient.defaultBaseUrl);
-    });
+    if (_kIsProdBuild) {
+      ParentApiClient.setBaseUrl(ParentApiClient.defaultBaseUrl);
+    } else {
+      ParentApiClient.getBaseUrl().then((saved) {
+        final match = _kKnownServers.firstWhere(
+          (e) => e.url == saved,
+          orElse: () => _kKnownServers[0],
+        );
+        ParentApiClient.setBaseUrl(match.url);
+        if (mounted) setState(() => _selectedEnv = match);
+      });
+    }
   }
 
   @override
@@ -35,43 +63,34 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _onServerSwitch(bool prod) async {
-    if (!prod) {
-      // Prompt for custom dev URL (ngrok, local IP, etc.)
-      final current = await ParentApiClient.getBaseUrl();
-      final isCurrentProd = current == ParentApiClient.defaultBaseUrl;
-      final ctrl = TextEditingController(text: isCurrentProd ? '' : current);
-      if (!mounted) return;
-      final result = await showDialog<String>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Dev Server URL', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Enter your local server URL.', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-              const SizedBox(height: 4),
-              const Text('e.g. http://192.168.1.5:8000 or https://xxxx.ngrok.io',
-                  style: TextStyle(color: AppColors.muted, fontSize: 11)),
-              const SizedBox(height: 12),
-              TextField(controller: ctrl, autocorrect: false, keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(hintText: 'http://192.168.x.x:8000')),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            TextButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Save')),
-          ],
-        ),
-      );
-      if (result == null || result.isEmpty) return;
-      setState(() => _isProd = false);
-      await ParentApiClient.setBaseUrl(result);
-    } else {
-      setState(() => _isProd = true);
-      await ParentApiClient.setBaseUrl(ParentApiClient.defaultBaseUrl);
-    }
+  Future<void> _showEnvPicker() async {
+    final result = await showDialog<_ServerEnv>(
+      context: context,
+      builder: (_) => SimpleDialog(
+        title: const Text('Select Environment',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+        children: _kKnownServers.map((env) => SimpleDialogOption(
+          onPressed: () => Navigator.pop(context, env),
+          child: Row(children: [
+            Icon(
+              env == _selectedEnv ? Icons.check_circle : Icons.radio_button_unchecked,
+              size: 16,
+              color: env == _selectedEnv ? AppColors.teal : AppColors.muted,
+            ),
+            const SizedBox(width: 10),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(env.label,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              Text(env.url,
+                  style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+            ]),
+          ]),
+        )).toList(),
+      ),
+    );
+    if (result == null) return;
+    await ParentApiClient.setBaseUrl(result.url);
+    if (mounted) setState(() => _selectedEnv = result);
   }
 
   Future<void> _next() async {
@@ -145,36 +164,36 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 48),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.dns_outlined, size: 12, color: AppColors.muted),
-                  const SizedBox(width: 6),
-                  GestureDetector(
-                    onTap: () => _onServerSwitch(!_isProd),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _isProd ? AppColors.tealLight : AppColors.amberLight,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: _isProd ? AppColors.teal.withOpacity(0.3) : AppColors.amber.withOpacity(0.4),
+              if (!_kIsProdBuild) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.dns_outlined, size: 12, color: AppColors.muted),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: _showEnvPicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.amberLight,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.amber.withOpacity(0.4)),
                         ),
-                      ),
-                      child: Text(
-                        _isProd ? 'PRODUCTION' : 'DEV',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: _isProd ? AppColors.teal : AppColors.amber,
-                          letterSpacing: 0.5,
+                        child: Text(
+                          'DEV · ${_selectedEnv.label.toUpperCase()}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.amber,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
