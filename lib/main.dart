@@ -186,8 +186,12 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
 
   Future<void> _registerToken(String token) async {
     try {
-      // Use platform + timestamp as stable device ID
-      final deviceId = '${Platform.operatingSystem}_${DateTime.now().millisecondsSinceEpoch ~/ 86400000}';
+      final prefs = await SharedPreferences.getInstance();
+      var deviceId = prefs.getString('push_device_id');
+      if (deviceId == null) {
+        deviceId = '${Platform.operatingSystem}_${DateTime.now().millisecondsSinceEpoch}';
+        await prefs.setString('push_device_id', deviceId);
+      }
       await ParentApiClient.registerPushToken(token, deviceId);
     } catch (_) {}
   }
@@ -247,11 +251,24 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
     }
 
     if (!auth.isLoggedIn) return const LoginScreen();
-    if (auth.isLocked) return const _BiometricLockScreen();
-    return Listener(
+
+    final home = Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (_) => _resetInactivityTimer(),
       child: const HomeScreen(),
+    );
+
+    if (!auth.isLocked) return home;
+
+    return Stack(
+      children: [
+        IgnorePointer(child: home),
+        BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(color: Colors.black.withOpacity(0.35)),
+        ),
+        const _BiometricLockScreen(),
+      ],
     );
   }
 }
@@ -286,15 +303,13 @@ class _BiometricLockScreenState extends State<_BiometricLockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF0FDFC),
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+    return SafeArea(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
                 Container(
                   width: 80,
                   height: 80,
@@ -367,7 +382,6 @@ class _BiometricLockScreenState extends State<_BiometricLockScreen> {
             ),
           ),
         ),
-      ),
     );
   }
 }

@@ -178,8 +178,15 @@ class ParentAuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     _isLocked = false;
-    await ParentApiClient.setToken(null);
     final prefs = await SharedPreferences.getInstance();
+    try {
+      final deviceId = prefs.getString('push_device_id');
+      if (deviceId != null) {
+        await ParentApiClient.deregisterPushToken(deviceId);
+        await prefs.remove('push_device_id');
+      }
+    } catch (_) {}
+    await ParentApiClient.setToken(null);
     await prefs.remove('parent_name');
     await prefs.remove('parent_id');
     await prefs.remove('parent_photo_url');

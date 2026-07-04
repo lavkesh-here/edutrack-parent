@@ -2,14 +2,61 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 
 void showSnack(BuildContext context, String msg, {bool error = false}) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: Text(msg, style: const TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.w600)),
-    backgroundColor: error ? AppColors.coral : AppColors.teal,
-    behavior: SnackBarBehavior.floating,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    margin: const EdgeInsets.all(16),
-    duration: const Duration(seconds: 3),
-  ));
+  final overlay = Overlay.of(context, rootOverlay: true);
+  late OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (ctx) => _SnackToast(msg: msg, error: error, onDone: () {
+      try { entry.remove(); } catch (_) {}
+    }),
+  );
+  overlay.insert(entry);
+}
+
+class _SnackToast extends StatefulWidget {
+  final String msg;
+  final bool error;
+  final VoidCallback onDone;
+  const _SnackToast({required this.msg, required this.error, required this.onDone});
+  @override
+  State<_SnackToast> createState() => _SnackToastState();
+}
+
+class _SnackToastState extends State<_SnackToast> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 3), widget.onDone);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).viewPadding.top;
+    return Positioned(
+      top: top + 8,
+      left: 16,
+      right: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: widget.error ? AppColors.coral : AppColors.teal,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 2))],
+          ),
+          child: Text(
+            widget.msg,
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 Widget statusBadge(String status) {

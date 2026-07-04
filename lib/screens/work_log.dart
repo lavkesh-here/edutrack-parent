@@ -238,6 +238,43 @@ class _DateGroupState extends State<_DateGroup> {
   }
 }
 
+void _openImageFullscreen(BuildContext context, List<String> urls, int startIndex) {
+  showDialog(
+    context: context,
+    builder: (dialogCtx) {
+      final ctrl = PageController(initialPage: startIndex);
+      return Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: ctrl,
+              itemCount: urls.length,
+              itemBuilder: (_, i) => InteractiveViewer(
+                child: Center(
+                  child: Image.network(urls[i], fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48)),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40, right: 16,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(dialogCtx),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 class _WorkLogCard extends StatelessWidget {
   final WorkLogItem item;
   final Future<void> Function(WorkLogItem, String) onAcknowledge;
@@ -328,6 +365,31 @@ class _WorkLogCard extends StatelessWidget {
               _ackIndicator(),
             ],
           ),
+          if (item.imageUrls.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 80,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: item.imageUrls.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 6),
+                itemBuilder: (_, i) => GestureDetector(
+                  onTap: () => _openImageFullscreen(context, item.imageUrls, i),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      item.imageUrls[i],
+                      width: 80, height: 80, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 80, height: 80, color: AppColors.bg,
+                        child: const Icon(Icons.broken_image_outlined, color: AppColors.muted),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
           if (isPending) ...[
             const SizedBox(height: 10),
             const Divider(height: 1),
