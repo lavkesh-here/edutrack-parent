@@ -123,13 +123,8 @@ class _BodyState extends State<_Body> {
   List<Map<String, dynamic>> get _currentDueItems =>
       _all.where((i) => i['status'] == 'unpaid' && _isCurrentOrPast(i)).toList();
 
-  /// Only the very next upcoming installment.
-  Map<String, dynamic>? get _nextUpcoming {
-    final list = _all
-        .where((i) => i['status'] == 'unpaid' && !_isCurrentOrPast(i))
-        .toList();
-    return list.isNotEmpty ? list.first : null;
-  }
+  List<Map<String, dynamic>> get _upcomingItems =>
+      _all.where((i) => i['status'] == 'unpaid' && !_isCurrentOrPast(i)).toList();
 
   List<Map<String, dynamic>> get _paidItems =>
       _all.where((i) => i['status'] == 'paid').toList();
@@ -160,7 +155,7 @@ class _BodyState extends State<_Body> {
   void initState() {
     super.initState();
     // Auto-expand paid section when there are no actionable items.
-    if (_overdueItems.isEmpty && _currentDueItems.isEmpty && _nextUpcoming == null) {
+    if (_overdueItems.isEmpty && _currentDueItems.isEmpty && _upcomingItems.isEmpty) {
       _showPaid = true;
     }
   }
@@ -228,8 +223,8 @@ class _BodyState extends State<_Body> {
                     const SizedBox(height: 12),
                   ],
 
-                  // UPCOMING — only the next 1, blocked if dues exist
-                  if (_nextUpcoming != null) ...[
+                  // UPCOMING — all upcoming installments, selectable for advance payment
+                  if (_upcomingItems.isNotEmpty) ...[
                     const _SectionLabel('UPCOMING'),
                     if (_hasUnpaidDue) ...[
                       Container(
@@ -244,12 +239,12 @@ class _BodyState extends State<_Body> {
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.lock_outline,
+                            Icon(Icons.info_outline,
                                 size: 14, color: Color(0xFF856404)),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Pay pending dues above to unlock upcoming installments.',
+                                'You have pending dues. You can still select upcoming installments to pay in advance.',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFF856404),
@@ -261,14 +256,13 @@ class _BodyState extends State<_Body> {
                         ),
                       ),
                     ],
-                    _InstallmentTile(
-                      key: ValueKey(_nextUpcoming!['id']),
-                      item: _nextUpcoming!,
-                      selected: false,
-                      onToggle: null,
-                      isLocked: _hasUnpaidDue,
-                      child: widget.child,
-                    ),
+                    ..._upcomingItems.map((item) => _InstallmentTile(
+                          key: ValueKey(item['id']),
+                          item: item,
+                          selected: _selected.contains(item['id'].toString()),
+                          onToggle: () => _toggleSelected(item['id'].toString()),
+                          child: widget.child,
+                        )),
                     const SizedBox(height: 12),
                   ],
 
@@ -406,10 +400,7 @@ class _BodyState extends State<_Body> {
     );
   }
 
-  String _fmtLarge(double v) {
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}k';
-    return v.toStringAsFixed(0);
-  }
+  String _fmtLarge(double v) => v.toStringAsFixed(0);
 }
 
 // ── Summary card ──────────────────────────────────────────────────────────────
@@ -471,8 +462,7 @@ class _SummaryCard extends StatelessWidget {
         ),
       );
 
-  String _fmt(double v) =>
-      v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}k' : v.toStringAsFixed(0);
+  String _fmt(double v) => v.toStringAsFixed(0);
 }
 
 // ── Section label ─────────────────────────────────────────────────────────────
@@ -538,8 +528,10 @@ class _InstallmentTileState extends State<_InstallmentTile> {
   Widget build(BuildContext context) {
     final item = widget.item;
     final amount = (item['amount'] as num? ?? 0).toDouble();
-    final lineItems = (item['line_items'] as List? ?? [])
-        .cast<Map<String, dynamic>>();
+    final lineItems = List<Map<String, dynamic>>.from(
+        (item['line_items'] as List? ?? []).cast<Map<String, dynamic>>())
+      ..sort((a, b) => (a['component_name']?.toString() ?? '')
+          .compareTo(b['component_name']?.toString() ?? ''));
 
     return Opacity(
       opacity: widget.isLocked ? 0.55 : 1.0,

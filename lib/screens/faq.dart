@@ -11,6 +11,7 @@ class FAQScreen extends StatefulWidget {
 class _FAQScreenState extends State<FAQScreen> {
   final _searchController = TextEditingController();
   String _query = '';
+  String? _openFaqKey;
 
   @override
   void dispose() {
@@ -141,7 +142,11 @@ class _FAQScreenState extends State<FAQScreen> {
                                           dividerColor: Colors.transparent,
                                         ),
                                         child: ExpansionTile(
-                                          key: Key('faq_${si}_$qi'),
+                                          key: ValueKey('faq_${si}_${qi}_$_openFaqKey'),
+                                          initiallyExpanded: _openFaqKey == '${si}_$qi',
+                                          onExpansionChanged: (expanded) {
+                                            setState(() => _openFaqKey = expanded ? '${si}_$qi' : null);
+                                          },
                                           tilePadding: const EdgeInsets.symmetric(
                                               horizontal: 16, vertical: 2),
                                           childrenPadding: const EdgeInsets.fromLTRB(

@@ -740,7 +740,115 @@ class ParentApiClient {
     return data['reply'] as String;
   }
 
+  // ── Forum ──────────────────────────────────────────────────────────────────
+
+  static Future<List<ForumPost>> getForumPosts({int page = 0, int pageSize = 20}) async {
+    final data = await _get('/api/v1/parent/forum/posts?page=$page&page_size=$pageSize');
+    final list = (data as Map<String, dynamic>)['announcements'] as List<dynamic>;
+    return list.map((e) => ForumPost.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<List<ForumComment>> getForumComments(String postId) async {
+    final data = await _get('/api/v1/parent/forum/posts/$postId/comments');
+    return (data as List<dynamic>)
+        .map((e) => ForumComment.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> createForumComment(String postId, String body, {String? parentId}) async {
+    await _post('/api/v1/parent/forum/posts/$postId/comments', {
+      'body': body,
+      if (parentId != null) 'parent_id': parentId,
+    });
+  }
+
+  static Future<bool> toggleForumCommentLike(String commentId) async {
+    final data = await _post('/api/v1/parent/forum/comments/$commentId/like', {});
+    return (data as Map<String, dynamic>)['liked'] as bool? ?? false;
+  }
+
 }  // end ParentApiClient
+
+
+// ── Forum models ──────────────────────────────────────────────────────────────
+
+class ForumPost {
+  final String id;
+  final String title;
+  final String body;
+  final String audience;
+  final bool isPinned;
+  final bool allowComments;
+  final String createdAt;
+  final String? authorName;
+  final List<Map<String, dynamic>> images;
+  final int commentCount;
+  final int likeCount;
+  final bool likedByMe;
+  final Map<String, dynamic>? previewComment;
+
+  const ForumPost({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.audience,
+    required this.isPinned,
+    required this.allowComments,
+    required this.createdAt,
+    this.authorName,
+    this.images = const [],
+    this.commentCount = 0,
+    this.likeCount = 0,
+    this.likedByMe = false,
+    this.previewComment,
+  });
+
+  factory ForumPost.fromJson(Map<String, dynamic> j) => ForumPost(
+        id: j['id'].toString(),
+        title: j['title'] as String? ?? '',
+        body: j['body'] as String? ?? '',
+        audience: j['audience'] as String? ?? 'all',
+        isPinned: j['is_pinned'] as bool? ?? false,
+        allowComments: j['allow_comments'] as bool? ?? false,
+        createdAt: j['created_at'] as String? ?? '',
+        authorName: j['author_name'] as String?,
+        images: (j['images'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>(),
+        commentCount: j['comment_count'] as int? ?? 0,
+        likeCount: j['like_count'] as int? ?? 0,
+        likedByMe: j['liked_by_me'] as bool? ?? false,
+        previewComment: j['preview_comment'] as Map<String, dynamic>?,
+      );
+}
+
+class ForumComment {
+  final String id;
+  final String body;
+  final String? authorName;
+  final String createdAt;
+  final String? parentId;
+  final int likeCount;
+  final bool likedByMe;
+
+  const ForumComment({
+    required this.id,
+    required this.body,
+    this.authorName,
+    required this.createdAt,
+    this.parentId,
+    this.likeCount = 0,
+    this.likedByMe = false,
+  });
+
+  factory ForumComment.fromJson(Map<String, dynamic> j) => ForumComment(
+        id: j['id'].toString(),
+        body: j['body'] as String? ?? '',
+        authorName: j['author_name'] as String?,
+        createdAt: j['created_at'] as String? ?? '',
+        parentId: j['parent_id']?.toString(),
+        likeCount: j['like_count'] as int? ?? 0,
+        likedByMe: j['liked_by_me'] as bool? ?? false,
+      );
+}
 
 class ApiError implements Exception {
   final String message;
