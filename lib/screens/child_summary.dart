@@ -31,7 +31,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 6, vsync: this);
+    _tab = TabController(length: 7, vsync: this);
     _photoUrl = widget.child.photoUrl;
     _load();
   }
@@ -162,6 +162,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
           _workLogTab(),
           _ReportCardTab(studentId: widget.child.studentId),
           _SyllabusTab(studentId: widget.child.studentId),
+          _ChildCertificatesTab(studentId: widget.child.studentId),
         ],
       ),
     );
@@ -382,6 +383,7 @@ class _StickyTabBar extends SliverPersistentHeaderDelegate {
                 Tab(text: 'Work Log'),
                 Tab(text: 'Report Card'),
                 Tab(text: 'Syllabus'),
+                Tab(text: 'Certificates'),
               ],
             ),
           ),
@@ -1181,4 +1183,191 @@ void _openImageViewer(BuildContext context, List<String> urls, int initialIndex)
       ),
     ),
   );
+}
+
+// ── Child certificates tab ────────────────────────────────────────────────────
+
+const _pCertTypeBg = {
+  'academic':      Color(0xFFFEF3C7),
+  'sports':        Color(0xFFDBEAFE),
+  'participation': Color(0xFFCCFBF1),
+  'cultural':      Color(0xFFFEE2E2),
+  'attendance':    Color(0xFFDCFCE7),
+  'custom':        Color(0xFFEDE9FE),
+};
+const _pCertTypeFg = {
+  'academic':      Color(0xFF92400E),
+  'sports':        Color(0xFF1E3A8A),
+  'participation': Color(0xFF134E4A),
+  'cultural':      Color(0xFF7F1D1D),
+  'attendance':    Color(0xFF14532D),
+  'custom':        Color(0xFF4C1D95),
+};
+const _pCertEmoji = {
+  'academic': '🎓', 'sports': '🏆', 'participation': '🎗️',
+  'cultural': '🎭', 'attendance': '📅', 'custom': '📜',
+};
+
+class _ChildCertificatesTab extends StatefulWidget {
+  final String studentId;
+  const _ChildCertificatesTab({required this.studentId});
+  @override
+  State<_ChildCertificatesTab> createState() => _ChildCertificatesTabState();
+}
+
+class _ChildCertificatesTabState extends State<_ChildCertificatesTab>
+    with AutomaticKeepAliveClientMixin {
+  List<Map<String, dynamic>> _certs = [];
+  bool _loading = true;
+  String? _error;
+  final Map<String, bool> _downloading = {};
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final data = await ParentApiClientCertificates.getChildCertificates(widget.studentId);
+      if (mounted) setState(() { _certs = data; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  String _fmtDate(String? iso) {
+    if (iso == null) return '';
+    try {
+      final d = DateTime.parse(iso).toLocal();
+      const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return '${d.day} ${m[d.month-1]} ${d.year}';
+    } catch (_) { return iso; }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final primary = Theme.of(context).colorScheme.primary;
+    if (_loading) return Center(child: CircularProgressIndicator(color: primary));
+    if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+    if (_certs.isEmpty) {
+      return const Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('🎓', style: TextStyle(fontSize: 40)),
+          SizedBox(height: 12),
+          Text('No certificates yet', style: TextStyle(fontSize: 14, color: AppColors.muted)),
+          SizedBox(height: 4),
+          Text('Certificates issued by school will appear here',
+            style: TextStyle(fontSize: 12, color: AppColors.muted), textAlign: TextAlign.center),
+        ]),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      color: primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        itemCount: _certs.length,
+        itemBuilder: (_, i) {
+          final c = _certs[i];
+          final certId = c['id'] as String;
+          final type = c['cert_type'] as String? ?? 'custom';
+          final bg = _pCertTypeBg[type] ?? const Color(0xFFEDE9FE);
+          final fg = _pCertTypeFg[type] ?? const Color(0xFF4C1D95);
+          final emoji = _pCertEmoji[type] ?? '📜';
+          final fields = (c['field_values'] as Map?)?.cast<String, dynamic>() ?? {};
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+                    child: Text('$emoji ${c['title_text'] ?? 'Certificate'}',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
+                  ),
+                  const Spacer(),
+                  Text(_fmtDate(c['issued_at'] as String?),
+                    style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                ]),
+                const SizedBox(height: 8),
+                Text(c['template_name'] as String? ?? '',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text)),
+                if (c['academic_year'] != null) ...[
+                  const SizedBox(height: 2),
+                  Text('Academic Year: ${c['academic_year']}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                ],
+                if (fields.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 6, runSpacing: 4, children: fields.entries.map((e) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.border)),
+                    child: Text('${e.value}', style: const TextStyle(fontSize: 11, color: AppColors.text2)),
+                  )).toList()),
+                ],
+                const SizedBox(height: 8),
+                Row(children: [
+                  Text('Cert No: ${c['cert_number'] ?? ''}',
+                    style: const TextStyle(fontSize: 11, color: AppColors.muted, fontFamily: 'monospace')),
+                  const Spacer(),
+                  Text('Issued by ${c['issued_by_name'] ?? ''}',
+                    style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                ]),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: (_downloading[certId] == true) ? null : () async {
+                      setState(() => _downloading[certId] = true);
+                      try {
+                        final url = await ParentApiClientCertificates.getCertificatePdfUrl(
+                          widget.studentId, certId,
+                        );
+                        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                      } catch (_) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Failed to open certificate PDF')),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _downloading[certId] = false);
+                      }
+                    },
+                    icon: (_downloading[certId] == true)
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                    label: Text((_downloading[certId] == true) ? 'Opening…' : 'Download PDF'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: primary,
+                      side: BorderSide(color: primary.withOpacity(0.4)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }

@@ -682,6 +682,16 @@ class ParentApiClient {
     return first;
   }
 
+  static Future<Map<String, dynamic>> getBranding(String schoolId) async {
+    final data = await _get('/api/v1/parent/branding/$schoolId');
+    return (data as Map<String, dynamic>?) ?? {};
+  }
+
+  static Future<List<Map<String, dynamic>>> getHealthIncidents(String studentId) async {
+    final data = await _get('/api/v1/parent/health-incidents/$studentId') as List<dynamic>;
+    return data.map((e) => e as Map<String, dynamic>).toList();
+  }
+
   // ── Cached profile ─────────────────────────────────────────────────────────
 
   // ── Global search ──────────────────────────────────────────────────────────
@@ -858,4 +868,23 @@ class ApiError implements Exception {
 
   @override
   String toString() => message;
+}
+
+// ── Certificates ──────────────────────────────────────────────────────────────
+
+extension ParentApiClientCertificates on ParentApiClient {
+  static Future<List<Map<String, dynamic>>> getChildCertificates(String studentId) async {
+    final data = await ParentApiClient._get('/api/v1/parent/child/$studentId/certificates');
+    return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  static Future<String> getCertificatePdfUrl(String studentId, String certId) async {
+    final data = await ParentApiClient._post(
+      '/api/v1/parent/child/$studentId/certificates/$certId/export-token',
+      {},
+    );
+    final token = data['token'] as String;
+    final base = await ParentApiClient.getBaseUrl();
+    return '$base/api/v1/parent/certificates/$certId/pdf?token=$token';
+  }
 }
