@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/auth.dart';
 import '../core/api.dart';
+import '../core/branding.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
 import 'attendance.dart';
@@ -17,6 +18,7 @@ import 'about.dart';
 import 'faq.dart';
 import 'transport.dart';
 import 'fees.dart';
+import 'health_incidents.dart';
 import 'attender.dart';
 import 'teachers.dart';
 import 'circulars.dart';
@@ -60,6 +62,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() { _children = childList; _loadingProfile = false; });
         _handlePendingNavigation();
+        if (childList.isNotEmpty) {
+          context.read<ParentBrandingProvider>().loadForSchool(childList[0].schoolId);
+        }
       }
     } catch (_) {
       if (mounted) setState(() => _loadingProfile = false);
@@ -122,7 +127,12 @@ class _HomeScreenState extends State<HomeScreen> {
         child: child,
         children: _children,
         childIdx: _childIdx,
-        onSwitchChild: (i) => setState(() => _childIdx = i),
+        onSwitchChild: (i) {
+          setState(() => _childIdx = i);
+          if (i < _children.length) {
+            context.read<ParentBrandingProvider>().loadForSchool(_children[i].schoolId);
+          }
+        },
         onSwitchTab: (i) => setState(() => _idx = i),
         onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
         onPhotoUpdated: (url) => setState(() {
@@ -748,7 +758,7 @@ class _HomeTabState extends State<_HomeTab> {
                                       ...() {
                                         final parentCornerTiles = [
                                           if (flags.fees)
-                                            _Tile('💰', 'Fees', AppColors.sun, AppColors.sunLight, () => _push(FeesScreen(child: child)), 'PARENT CORNER'),
+                                            _Tile('🏥', 'Health Records', AppColors.rose, AppColors.coralLight, () => _push(HealthIncidentsScreen(child: child)), 'PARENT CORNER'),
                                           _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight, () => _push(AttenderScreen(child: child)), 'PARENT CORNER'),
                                         ];
                                         return [

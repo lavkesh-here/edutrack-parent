@@ -25,9 +25,9 @@ class AppColors {
   static const border = Color(0xFFF0D9C8);
 }
 
-ThemeData buildTheme() => ThemeData(
+ThemeData buildTheme([Color primary = AppColors.sun]) => ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: AppColors.sun, surface: AppColors.bg),
+      colorScheme: ColorScheme.fromSeed(seedColor: primary, surface: AppColors.bg),
       scaffoldBackgroundColor: AppColors.bg,
       textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme),
       appBarTheme: const AppBarTheme(
@@ -55,13 +55,13 @@ ThemeData buildTheme() => ThemeData(
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.sun, width: 1.5),
+          borderSide: BorderSide(color: primary, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.sun,
+          backgroundColor: primary,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),

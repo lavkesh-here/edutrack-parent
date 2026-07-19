@@ -268,7 +268,7 @@ class ParentNotification {
 // ── API Client ────────────────────────────────────────────────────────────────
 
 class ParentApiClient {
-  static const defaultBaseUrl = 'https://edutrack-api-6382035856.asia-south1.run.app';
+  static const defaultBaseUrl = 'https://edutrack-api-849362142189.asia-south1.run.app';
   static const devBaseUrl = 'http://10.0.2.2:8000';
   static const _prefKeyUrl = 'parent_server_url';
   static const _prefKeyToken = 'parent_auth_token';
