@@ -283,8 +283,8 @@ const _faqSections = <_FaqSection>[
             'If a test shows "—", it may not have been graded yet.',
       ),
       _FaqItem(
-        'What does the AI Analysis on a test mean?',
-        'The AI Analysis summarises how the class performed, '
+        'What does the Smart Analysis on a test mean?',
+        'The Smart Analysis summarises how the class performed, '
             'highlights chapters where your child may need extra practice, '
             'and gives the teacher suggestions for follow-up.',
       ),

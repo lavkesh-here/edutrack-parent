@@ -687,7 +687,7 @@ class _ReportCardTabState extends State<_ReportCardTab>
               icon: _explaining
                   ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.auto_awesome_outlined, size: 16),
-              label: Text(_explaining ? 'Explaining…' : 'Explain with AI', style: const TextStyle(fontSize: 13)),
+              label: Text(_explaining ? 'Explaining…' : 'Explain with Vidya', style: const TextStyle(fontSize: 13)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.teal,
                 foregroundColor: Colors.white,
@@ -712,7 +712,7 @@ class _ReportCardTabState extends State<_ReportCardTab>
                     children: [
                       Icon(Icons.auto_awesome_outlined, size: 14, color: AppColors.teal),
                       SizedBox(width: 6),
-                      Text('AI Explanation',
+                      Text('Vidya\'s Explanation',
                           style: TextStyle(
                               fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.teal)),
                     ],
