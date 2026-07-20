@@ -777,6 +777,21 @@ class ParentApiClient {
     return data['reply'] as String;
   }
 
+  // ── Vidya copilot ──────────────────────────────────────────────────────────
+
+  static Future<String> askVidya({
+    required String question,
+    required List<Map<String, String>> history,
+    String? studentId,
+  }) async {
+    final data = await _post('/api/v1/parent/copilot/ask', {
+      'question': question,
+      'history': history,
+      if (studentId != null) 'student_id': studentId,
+    });
+    return data['reply'] as String;
+  }
+
   // ── Forum ──────────────────────────────────────────────────────────────────
 
   static Future<List<ForumPost>> getForumPosts({int page = 0, int pageSize = 20}) async {

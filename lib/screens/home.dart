@@ -28,6 +28,7 @@ import 'search.dart';
 import 'support_chat_screen.dart';
 import 'forum.dart';
 import 'emergency_contacts.dart';
+import 'vidya_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -710,6 +711,16 @@ class _HomeTabState extends State<_HomeTab> {
                           : null,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28),
+                    ),
+                  // Vidya copilot
+                  if (widget.child != null)
+                    IconButton(
+                      icon: const Text('✨', style: TextStyle(fontSize: 20)),
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => VidyaScreen(child: widget.child!),
+                      )),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36),
                     ),
                   // Support chat — hidden if SA has disabled ai_support_chat
                   if (flags.aiSupportChat)
