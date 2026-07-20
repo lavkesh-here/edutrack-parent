@@ -922,6 +922,24 @@ extension ParentApiClientPTM on ParentApiClient {
     final data = await ParentApiClient._get('/api/v1/parent/child/$studentId/ptm');
     return (data['meetings'] as List).cast<Map<String, dynamic>>();
   }
+
+  static Future<List<Map<String, dynamic>>> getPTMEvents(String studentId) async {
+    final data = await ParentApiClient._get(
+        '/api/v1/parent/ptm/events?student_id=$studentId');
+    return (data['events'] as List).cast<Map<String, dynamic>>();
+  }
+
+  static Future<void> registerPTM(String eventId, String studentId, {String? remarks}) async {
+    await ParentApiClient._post('/api/v1/parent/ptm/events/$eventId/register', {
+      'student_id': studentId,
+      if (remarks != null && remarks.isNotEmpty) 'parent_remarks': remarks,
+    });
+  }
+
+  static Future<void> cancelPTMRegistration(String eventId, String studentId) async {
+    await ParentApiClient._delete(
+        '/api/v1/parent/ptm/events/$eventId/register?student_id=$studentId');
+  }
 }
 
 // ── SOS ───────────────────────────────────────────────────────────────────────
