@@ -27,6 +27,7 @@ import 'child_summary.dart';
 import 'search.dart';
 import 'support_chat_screen.dart';
 import 'forum.dart';
+import 'emergency_contacts.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -494,50 +495,85 @@ class _HomeTabState extends State<_HomeTab> {
   void _push(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
 
   void _triggerSOS(BuildContext ctx, String studentId) {
+    final locationCtrl = TextEditingController();
     showDialog(
       context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Text('🚨', style: TextStyle(fontSize: 24)),
-            SizedBox(width: 8),
-            Text('Send SOS Alert',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (_, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Text('🚨', style: TextStyle(fontSize: 24)),
+              SizedBox(width: 8),
+              Text('Send SOS Alert',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This will immediately notify the school admins about an emergency.',
+                style: TextStyle(fontSize: 13, color: AppColors.muted),
+              ),
+              const SizedBox(height: 14),
+              const Text('Location / Note (optional)',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.muted)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: locationCtrl,
+                maxLength: 200,
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'e.g. At the main gate, near the canteen…',
+                  hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
+                  counterText: '',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.border)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.coral)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () { locationCtrl.dispose(); Navigator.pop(dialogCtx); },
+              child: const Text('Cancel', style: TextStyle(color: AppColors.muted)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final note = locationCtrl.text.trim();
+                locationCtrl.dispose();
+                Navigator.pop(dialogCtx);
+                try {
+                  await ParentApiClientSOS.triggerSOS(
+                    studentId: studentId,
+                    locationNote: note.isEmpty ? null : note,
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('🚨 SOS alert sent to school')),
+                    );
+                  }
+                } catch (_) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to send SOS'), backgroundColor: AppColors.coral),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.coral),
+              child: const Text('Send SOS',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            ),
           ],
         ),
-        content: const Text(
-          'This will immediately notify the school admins about an emergency.',
-          style: TextStyle(fontSize: 13, color: AppColors.muted),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.muted)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(dialogCtx);
-              try {
-                await ParentApiClientSOS.triggerSOS(studentId: studentId);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('SOS alert sent to school')),
-                  );
-                }
-              } catch (_) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Failed to send SOS'), backgroundColor: AppColors.coral),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.coral),
-            child: const Text('Send SOS',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-          ),
-        ],
       ),
     );
   }
@@ -812,6 +848,7 @@ class _HomeTabState extends State<_HomeTab> {
                                           if (flags.fees)
                                             _Tile('🏥', 'Health Records', AppColors.rose, AppColors.coralLight, () => _push(HealthIncidentsScreen(child: child)), 'PARENT CORNER'),
                                           _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight, () => _push(AttenderScreen(child: child)), 'PARENT CORNER'),
+                                          _Tile('📞', 'Emergency Contacts', AppColors.coral, AppColors.coralLight, () => _push(EmergencyContactsScreen(child: child)), 'PARENT CORNER'),
                                           _Tile('🚨', 'SOS Alert', AppColors.coral, AppColors.coralLight, () => _triggerSOS(context, child.studentId), 'PARENT CORNER'),
                                         ];
                                         return [

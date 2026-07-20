@@ -351,6 +351,30 @@ class ParentApiClient {
     return jsonDecode(utf8.decode(res.bodyBytes));
   }
 
+  static Future<dynamic> _delete(String path) async {
+    final base = await getBaseUrl();
+    final sw = Stopwatch()..start();
+    final res = await http.delete(
+      Uri.parse('$base$path'),
+      headers: await _headers(),
+    ).timeout(const Duration(seconds: 20));
+    final ms = sw.elapsedMilliseconds;
+    final rid = res.headers['x-request-id'];
+    if (res.statusCode == 401) {
+      _log('DELETE', path, 401, ms, requestId: rid, error: 'session expired');
+      await onUnauthorized?.call();
+      throw ApiError('Session expired. Please log in again.', 401);
+    }
+    if (res.statusCode >= 400) {
+      final detail = _errorDetail(res);
+      _log('DELETE', path, res.statusCode, ms, requestId: rid, error: detail);
+      throw ApiError(detail, res.statusCode);
+    }
+    _log('DELETE', path, res.statusCode, ms, requestId: rid);
+    if (res.body.isEmpty) return <String, dynamic>{};
+    return jsonDecode(utf8.decode(res.bodyBytes));
+  }
+
   static Future<dynamic> _patch(String path, Map<String, dynamic> body) async {
     final base = await getBaseUrl();
     final sw = Stopwatch()..start();
@@ -931,6 +955,10 @@ extension ParentApiClientEmergency on ParentApiClient {
       'phone': phone,
       'priority': priority,
     });
+  }
+
+  static Future<void> deleteEmergencyContact(String studentId, String contactId) async {
+    await ParentApiClient._delete('/api/v1/parent/child/$studentId/emergency-contacts/$contactId');
   }
 }
 
