@@ -31,7 +31,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 7, vsync: this);
+    _tab = TabController(length: 8, vsync: this);
     _photoUrl = widget.child.photoUrl;
     _load();
   }
@@ -163,6 +163,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
           _ReportCardTab(studentId: widget.child.studentId),
           _SyllabusTab(studentId: widget.child.studentId),
           _ChildCertificatesTab(studentId: widget.child.studentId),
+          _PTMTab(studentId: widget.child.studentId),
         ],
       ),
     );
@@ -384,6 +385,7 @@ class _StickyTabBar extends SliverPersistentHeaderDelegate {
                 Tab(text: 'Report Card'),
                 Tab(text: 'Syllabus'),
                 Tab(text: 'Certificates'),
+                Tab(text: 'PTM'),
               ],
             ),
           ),
@@ -561,6 +563,8 @@ class _ReportCardTabState extends State<_ReportCardTab>
   bool _loading = true;
   String? _error;
   bool _pdfLoading = false;
+  bool _explaining = false;
+  String? _explanation;
 
   @override
   bool get wantKeepAlive => true;
@@ -662,6 +666,64 @@ class _ReportCardTabState extends State<_ReportCardTab>
               ),
             ),
           ),
+          const SizedBox(height: 10),
+
+          // AI explain button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _explaining ? null : () async {
+                setState(() { _explaining = true; _explanation = null; });
+                try {
+                  final result = await ParentApiClientAI.explainReport(widget.studentId);
+                  if (mounted) setState(() { _explanation = result; _explaining = false; });
+                } catch (_) {
+                  if (mounted) {
+                    setState(() => _explaining = false);
+                    showSnack(context, 'Could not generate explanation', error: true);
+                  }
+                }
+              },
+              icon: _explaining
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.auto_awesome_outlined, size: 16),
+              label: Text(_explaining ? 'Explaining…' : 'Explain with AI', style: const TextStyle(fontSize: 13)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.teal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+          if (_explanation != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.teal.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.teal.withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.auto_awesome_outlined, size: 14, color: AppColors.teal),
+                      SizedBox(width: 6),
+                      Text('AI Explanation',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.teal)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(_explanation!,
+                      style: const TextStyle(fontSize: 13, color: AppColors.text, height: 1.5)),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
 
           // Stale notice
@@ -1369,5 +1431,241 @@ class _ChildCertificatesTabState extends State<_ChildCertificatesTab>
         },
       ),
     );
+  }
+}
+
+// ── PTM Tab ────────────────────────────────────────────────────────────────────
+
+class _PTMTab extends StatefulWidget {
+  final String studentId;
+  const _PTMTab({required this.studentId});
+
+  @override
+  State<_PTMTab> createState() => _PTMTabState();
+}
+
+class _PTMTabState extends State<_PTMTab> with AutomaticKeepAliveClientMixin {
+  List<Map<String, dynamic>> _meetings = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final data = await ParentApiClientPTM.getChildPTM(widget.studentId);
+      if (mounted) setState(() { _meetings = data; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.teal));
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('⚠️', style: TextStyle(fontSize: 32)),
+            const SizedBox(height: 8),
+            Text(_error!, textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _load, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+    if (_meetings.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('🤝', style: TextStyle(fontSize: 40)),
+              SizedBox(height: 12),
+              Text('No PTM meetings yet',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.text)),
+              SizedBox(height: 4),
+              Text('Parent-teacher meeting notes will appear here after your child\'s teacher logs them.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: AppColors.muted)),
+            ],
+          ),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      color: AppColors.teal,
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        itemCount: _meetings.length,
+        itemBuilder: (_, i) => _PTMMeetingCard(meeting: _meetings[i]),
+      ),
+    );
+  }
+}
+
+class _PTMMeetingCard extends StatelessWidget {
+  final Map<String, dynamic> meeting;
+  const _PTMMeetingCard({required this.meeting});
+
+  @override
+  Widget build(BuildContext context) {
+    final teacherName = meeting['teacher_name'] as String? ?? 'Teacher';
+    final eventTitle = meeting['event_title'] as String? ?? 'PTM';
+    final eventDate = meeting['event_date'] as String? ?? '';
+    final status = meeting['status'] as String? ?? 'scheduled';
+    final remarks = meeting['remarks'] as String?;
+    final actionItems = (meeting['action_items'] as List?)?.cast<String>() ?? [];
+    final metAt = meeting['met_at'] as String?;
+
+    final (statusColor, statusLabel, statusIcon) = switch (status) {
+      'done'     => (AppColors.green, 'Met', Icons.check_circle_rounded),
+      'no_show'  => (AppColors.muted, 'Parent Absent', Icons.cancel_outlined),
+      _          => (AppColors.amber, 'Scheduled', Icons.schedule_rounded),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 42, height: 42,
+                    decoration: BoxDecoration(
+                      color: AppColors.teal.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(child: Text('🤝', style: TextStyle(fontSize: 20))),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(eventTitle,
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text)),
+                        Text(teacherName,
+                            style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                        if (eventDate.isNotEmpty)
+                          Text(_fmtDate(eventDate),
+                              style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 14, color: statusColor),
+                      const SizedBox(width: 4),
+                      Text(statusLabel,
+                          style: TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w700, color: statusColor)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            if (remarks != null && remarks.isNotEmpty || actionItems.isNotEmpty) ...[
+              const Divider(height: 1, color: AppColors.border),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (remarks != null && remarks.isNotEmpty) ...[
+                      const Text('Remarks',
+                          style: TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.muted)),
+                      const SizedBox(height: 4),
+                      Text(remarks,
+                          style: const TextStyle(fontSize: 13, color: AppColors.text, height: 1.4)),
+                      if (actionItems.isNotEmpty) const SizedBox(height: 10),
+                    ],
+                    if (actionItems.isNotEmpty) ...[
+                      const Text('Action Items',
+                          style: TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.muted)),
+                      const SizedBox(height: 4),
+                      ...actionItems.map((item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('• ',
+                                    style: TextStyle(
+                                        color: AppColors.teal, fontWeight: FontWeight.w700)),
+                                Expanded(
+                                  child: Text(item,
+                                      style: const TextStyle(
+                                          fontSize: 12, color: AppColors.text)),
+                                ),
+                              ],
+                            ),
+                          )),
+                    ],
+                    if (metAt != null) ...[
+                      const SizedBox(height: 6),
+                      Text('Met on: ${_fmtDateTime(metAt)}',
+                          style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _fmtDate(String iso) {
+    try {
+      final d = DateTime.parse(iso);
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return '${d.day} ${months[d.month - 1]} ${d.year}';
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  String _fmtDateTime(String iso) {
+    try {
+      final d = DateTime.parse(iso).toLocal();
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      final h = d.hour.toString().padLeft(2, '0');
+      final m = d.minute.toString().padLeft(2, '0');
+      return '${d.day} ${months[d.month - 1]} $h:$m';
+    } catch (_) {
+      return iso;
+    }
   }
 }

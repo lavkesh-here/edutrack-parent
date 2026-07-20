@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/auth.dart';
 import 'core/api.dart';
 import 'core/branding.dart';
+import 'core/device_context.dart';
 import 'core/theme.dart';
 import 'screens/login.dart';
 import 'screens/home.dart';
@@ -23,6 +24,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await DeviceContext.init();
 
   // Initialize Firebase (requires google-services.json on Android,
   // GoogleService-Info.plist on iOS — download from Firebase Console)

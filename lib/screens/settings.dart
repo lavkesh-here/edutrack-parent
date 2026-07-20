@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/auth.dart';
 import '../core/api.dart';
+import '../core/branding.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
 import 'devices.dart';
@@ -127,6 +128,7 @@ class _State extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = Theme.of(context).colorScheme.primary;
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(title: const Text('Settings'), leading: const BackButton()),
@@ -232,10 +234,15 @@ class _State extends State<SettingsScreen> {
                 trailing: Switch(
                   value: _bioEnabled,
                   onChanged: _setBioEnabled,
-                  activeColor: AppColors.teal,
+                  activeColor: p,
                 ),
               ),
             ),
+
+          // App colour picker
+          const _ColorPickerCard(),
+
+          const SizedBox(height: 12),
 
           // Server environment tile
           GestureDetector(
@@ -369,4 +376,86 @@ class _PassField extends StatelessWidget {
           ),
         ],
       );
+}
+
+class _ColorPickerCard extends StatelessWidget {
+  const _ColorPickerCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final branding = context.watch<ParentBrandingProvider>();
+    final p = branding.primaryColor;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border, width: 1.5),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: p.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.palette_outlined, color: p, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('App Colour',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text)),
+                    Text(
+                      branding.hasUserOverride ? 'Your custom colour' : 'School default',
+                      style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ),
+              if (branding.hasUserOverride)
+                GestureDetector(
+                  onTap: () => context.read<ParentBrandingProvider>().clearUserOverride(),
+                  child: const Text('Reset',
+                      style: TextStyle(fontSize: 11, color: AppColors.muted, decoration: TextDecoration.underline)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: kBrandingPresets.map((color) {
+              final isSelected = color.value == p.value;
+              return GestureDetector(
+                onTap: () => context.read<ParentBrandingProvider>().setUserOverride(color),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: isSelected
+                        ? Border.all(color: AppColors.text, width: 2.5)
+                        : Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(color: color.withOpacity(0.4), blurRadius: 4, offset: const Offset(0, 2)),
+                    ],
+                  ),
+                  child: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
 }

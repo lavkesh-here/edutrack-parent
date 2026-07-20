@@ -153,6 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<ParentAuthProvider>();
+    final p = Theme.of(context).colorScheme.primary;
     final showWorkLog = auth.features.workLogs;
     final profileIdx = _profileIdx(showWorkLog);
     final screens = _buildScreens(showWorkLog);
@@ -184,7 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onLogout: () async { Navigator.pop(context); await auth.logout(); },
         ),
         body: _loadingProfile
-            ? const Center(child: CircularProgressIndicator(color: AppColors.teal))
+            ? Center(child: CircularProgressIndicator(color: p))
             : !auth.features.parentAppEnabled
                 ? _ParentAppDisabledScreen(onLogout: () => auth.logout())
                 : IndexedStack(index: _idx, children: screens),
@@ -242,6 +243,7 @@ class _AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = Theme.of(context).colorScheme.primary;
     return Drawer(
       backgroundColor: Colors.white,
       child: SafeArea(
@@ -251,8 +253,8 @@ class _AppDrawer extends StatelessWidget {
             // Header
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [p, p.withOpacity(0.75)]),
               ),
               child: Row(
                 children: [
@@ -491,6 +493,55 @@ class _HomeTabState extends State<_HomeTab> {
 
   void _push(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
 
+  void _triggerSOS(BuildContext ctx, String studentId) {
+    showDialog(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Text('🚨', style: TextStyle(fontSize: 24)),
+            SizedBox(width: 8),
+            Text('Send SOS Alert',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        content: const Text(
+          'This will immediately notify the school admins about an emergency.',
+          style: TextStyle(fontSize: 13, color: AppColors.muted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.muted)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(dialogCtx);
+              try {
+                await ParentApiClientSOS.triggerSOS(studentId: studentId);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('SOS alert sent to school')),
+                  );
+                }
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to send SOS'), backgroundColor: AppColors.coral),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.coral),
+            child: const Text('Send SOS',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAvatar(ChildInfo? child) {
     if (child == null) {
       return Container(
@@ -528,6 +579,7 @@ class _HomeTabState extends State<_HomeTab> {
   @override
   Widget build(BuildContext context) {
     final child = widget.child;
+    final p = Theme.of(context).colorScheme.primary;
     final flags = context.read<ParentAuthProvider>().features;
 
     return Scaffold(
@@ -550,7 +602,7 @@ class _HomeTabState extends State<_HomeTab> {
                   if (widget.children.length > 1)
                     IconButton(
                       icon: Icon(Icons.chevron_left,
-                          color: widget.childIdx > 0 ? AppColors.teal : AppColors.border, size: 22),
+                          color: widget.childIdx > 0 ? p : AppColors.border, size: 22),
                       onPressed: widget.childIdx > 0
                           ? () => widget.onSwitchChild(widget.childIdx - 1)
                           : null,
@@ -596,7 +648,7 @@ class _HomeTabState extends State<_HomeTab> {
                   if (widget.children.length > 1)
                     IconButton(
                       icon: Icon(Icons.chevron_right,
-                          color: widget.childIdx < widget.children.length - 1 ? AppColors.teal : AppColors.border, size: 22),
+                          color: widget.childIdx < widget.children.length - 1 ? p : AppColors.border, size: 22),
                       onPressed: widget.childIdx < widget.children.length - 1
                           ? () => widget.onSwitchChild(widget.childIdx + 1)
                           : null,
@@ -637,9 +689,9 @@ class _HomeTabState extends State<_HomeTab> {
 
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.teal))
+                  ? Center(child: CircularProgressIndicator(color: p))
                   : RefreshIndicator(
-                      color: AppColors.teal,
+                      color: p,
                       onRefresh: _load,
                       child: SingleChildScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
@@ -760,6 +812,7 @@ class _HomeTabState extends State<_HomeTab> {
                                           if (flags.fees)
                                             _Tile('🏥', 'Health Records', AppColors.rose, AppColors.coralLight, () => _push(HealthIncidentsScreen(child: child)), 'PARENT CORNER'),
                                           _Tile('👤', 'Attender', AppColors.violet, AppColors.violetLight, () => _push(AttenderScreen(child: child)), 'PARENT CORNER'),
+                                          _Tile('🚨', 'SOS Alert', AppColors.coral, AppColors.coralLight, () => _triggerSOS(context, child.studentId), 'PARENT CORNER'),
                                         ];
                                         return [
                                           const SizedBox(height: 8),
@@ -812,7 +865,7 @@ class _HomeTabState extends State<_HomeTab> {
                                             trailing: Switch(
                                               value: _bioEnabled,
                                               onChanged: _setBioEnabled,
-                                              activeColor: AppColors.teal,
+                                              activeColor: p,
                                             ),
                                           ),
                                         ),
@@ -997,6 +1050,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = index == current;
+    final p = Theme.of(context).colorScheme.primary;
     return Expanded(
       child: GestureDetector(
         onTap: () => onTap(index),
@@ -1011,7 +1065,7 @@ class _NavItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: active ? FontWeight.w800 : FontWeight.w500,
-                color: active ? AppColors.teal : AppColors.muted,
+                color: active ? p : AppColors.muted,
               ),
             ),
           ],
@@ -1028,6 +1082,7 @@ class _ParentAppDisabledScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = Theme.of(context).colorScheme.primary;
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -1039,11 +1094,11 @@ class _ParentAppDisabledScreen extends StatelessWidget {
               Container(
                 width: 72,
                 height: 72,
-                decoration: const BoxDecoration(
-                  color: AppColors.tealLight,
+                decoration: BoxDecoration(
+                  color: p.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.school_outlined, color: AppColors.teal, size: 36),
+                child: Icon(Icons.school_outlined, color: p, size: 36),
               ),
               const SizedBox(height: 24),
               const Text(

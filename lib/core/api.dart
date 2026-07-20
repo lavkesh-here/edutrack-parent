@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cache.dart';
+import 'device_context.dart';
 
 // ── Models ────────────────────────────────────────────────────────────────────
 
@@ -304,6 +305,7 @@ class ParentApiClient {
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
+      ...DeviceContext.headers,
     };
   }
 
@@ -886,5 +888,69 @@ extension ParentApiClientCertificates on ParentApiClient {
     final token = data['token'] as String;
     final base = await ParentApiClient.getBaseUrl();
     return '$base/api/v1/parent/certificates/$certId/pdf?token=$token';
+  }
+}
+
+// ── PTM ───────────────────────────────────────────────────────────────────────
+
+extension ParentApiClientPTM on ParentApiClient {
+  static Future<List<Map<String, dynamic>>> getChildPTM(String studentId) async {
+    final data = await ParentApiClient._get('/api/v1/parent/child/$studentId/ptm');
+    return (data['meetings'] as List).cast<Map<String, dynamic>>();
+  }
+}
+
+// ── SOS ───────────────────────────────────────────────────────────────────────
+
+extension ParentApiClientSOS on ParentApiClient {
+  static Future<void> triggerSOS({String? locationNote, String? studentId}) async {
+    await ParentApiClient._post('/api/v1/parent/sos', {
+      if (locationNote != null) 'location_note': locationNote,
+      if (studentId != null) 'student_id': studentId,
+    });
+  }
+}
+
+// ── Emergency Contacts ────────────────────────────────────────────────────────
+
+extension ParentApiClientEmergency on ParentApiClient {
+  static Future<List<Map<String, dynamic>>> getChildEmergencyContacts(String studentId) async {
+    final data = await ParentApiClient._get('/api/v1/parent/child/$studentId/emergency-contacts');
+    return (data['contacts'] as List).cast<Map<String, dynamic>>();
+  }
+
+  static Future<void> addEmergencyContact(String studentId, {
+    required String name,
+    required String relation,
+    required String phone,
+    int priority = 1,
+  }) async {
+    await ParentApiClient._post('/api/v1/parent/child/$studentId/emergency-contacts', {
+      'name': name,
+      'relation': relation,
+      'phone': phone,
+      'priority': priority,
+    });
+  }
+}
+
+// ── Medical Profile ───────────────────────────────────────────────────────────
+
+extension ParentApiClientMedical on ParentApiClient {
+  static Future<Map<String, dynamic>?> getChildMedical(String studentId) async {
+    final data = await ParentApiClient._get('/api/v1/parent/child/$studentId/medical');
+    return data['profile'] as Map<String, dynamic>?;
+  }
+}
+
+// ── AI Report Explain ─────────────────────────────────────────────────────────
+
+extension ParentApiClientAI on ParentApiClient {
+  static Future<String> explainReport(String studentId, {String language = 'english'}) async {
+    final data = await ParentApiClient._post(
+      '/api/v1/parent/child/$studentId/report/explain',
+      {'language': language},
+    );
+    return data['explanation'] as String? ?? '';
   }
 }
