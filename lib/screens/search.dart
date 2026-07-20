@@ -56,7 +56,8 @@ class _SearchScreenState extends State<SearchScreen> {
         (_results!['work_logs'] as List).length +
         (_results!['notifications'] as List).length +
         (_results!['circulars'] as List).length +
-        (_results!['teachers'] as List).length;
+        (_results!['teachers'] as List).length +
+        ((_results!['fees'] as List?) ?? []).length;
   }
 
   @override
@@ -77,7 +78,7 @@ class _SearchScreenState extends State<SearchScreen> {
           onSubmitted: _search,
           style: const TextStyle(fontSize: 15, color: AppColors.text),
           decoration: InputDecoration(
-            hintText: 'Search tests, homework, teachers...',
+            hintText: 'Search tests, homework, fees, teachers...',
             hintStyle: const TextStyle(fontSize: 14, color: AppColors.muted),
             border: InputBorder.none,
             suffixIcon: _ctrl.text.isNotEmpty
@@ -146,6 +147,12 @@ class _SearchScreenState extends State<SearchScreen> {
                           builder: (item) => _TeacherTile(item: item),
                           onViewAll: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TeachersScreen(child: widget.child))),
                         ),
+                        _ResultSection(
+                          label: '💰 Fees',
+                          items: ((_results!['fees'] as List?) ?? []).cast<Map<String, dynamic>>(),
+                          builder: (item) => _FeeTile(item: item),
+                          onViewAll: () {},
+                        ),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -163,7 +170,7 @@ class _EmptyState extends StatelessWidget {
             SizedBox(height: 12),
             Text('Search your child\'s school data', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.text)),
             SizedBox(height: 4),
-            Text('Tests, homework, notifications,\ncirculars, teachers', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: AppColors.muted)),
+            Text('Tests, homework, fees, notifications,\ncirculars, teachers', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: AppColors.muted)),
           ],
         ),
       );
@@ -283,6 +290,31 @@ class _TeacherTile extends StatelessWidget {
         sub: item['subject_name'] as String? ?? '',
         trailing: null,
       );
+}
+
+class _FeeTile extends StatelessWidget {
+  final Map<String, dynamic> item;
+  const _FeeTile({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = item['status'] as String? ?? 'pending';
+    final amount = item['amount'] as num? ?? 0;
+    final paid = item['paid_amount'] as num? ?? 0;
+    final color = status == 'paid' ? AppColors.teal : status == 'partial' ? AppColors.amber : AppColors.coral;
+    final statusLabel = status == 'paid' ? 'Paid' : status == 'partial' ? '₹$paid paid' : 'Pending';
+    return _Card(
+      icon: '💰',
+      iconBg: AppColors.amberLight,
+      title: item['fee_type'] as String? ?? '',
+      sub: '₹${amount.toStringAsFixed(0)} · Due ${fmtDate(item['due_date'] as String? ?? '')}',
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+        child: Text(statusLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+      ),
+    );
+  }
 }
 
 class _Card extends StatelessWidget {

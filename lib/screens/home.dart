@@ -560,10 +560,11 @@ class _HomeTabState extends State<_HomeTab> {
                       const SnackBar(content: Text('🚨 SOS alert sent to school')),
                     );
                   }
-                } catch (_) {
+                } catch (e) {
                   if (mounted) {
+                    final msg = e is ApiError ? e.message : 'Failed to send SOS. Please try again.';
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Failed to send SOS'), backgroundColor: AppColors.coral),
+                      SnackBar(content: Text(msg), backgroundColor: AppColors.coral),
                     );
                   }
                 }
@@ -612,6 +613,20 @@ class _HomeTabState extends State<_HomeTab> {
         child: Center(child: Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: fg))),
       );
 
+  Widget _initialsAvatar(ChildInfo child) {
+    final isFemale = child.gender?.toLowerCase() == 'female';
+    final bg = isFemale ? const Color(0xFFF3E8FF) : const Color(0xFFDBEAFE);
+    final fg = isFemale ? const Color(0xFF7C3AED) : const Color(0xFF1D4ED8);
+    final parts = child.studentName.trim().split(' ');
+    final initials = parts.length >= 2
+        ? '${parts.first[0]}${parts.last[0]}'.toUpperCase()
+        : parts.first.isNotEmpty ? parts.first[0].toUpperCase() : '?';
+    return Container(
+      color: bg,
+      child: Center(child: Text(initials, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: fg))),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final child = widget.child;
@@ -646,40 +661,45 @@ class _HomeTabState extends State<_HomeTab> {
                       constraints: const BoxConstraints(minWidth: 28),
                     ),
                   // Avatar + name (tappable → ChildSummaryScreen)
-                  GestureDetector(
-                    onTap: child != null
-                        ? () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ChildSummaryScreen(
-                                  child: child,
-                                  onPhotoUpdated: widget.onPhotoUpdated,
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: child != null
+                          ? () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChildSummaryScreen(
+                                    child: child,
+                                    onPhotoUpdated: widget.onPhotoUpdated,
+                                  ),
                                 ),
-                              ),
-                            )
-                        : null,
-                    child: Row(
-                      children: [
-                        _buildAvatar(child),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              child?.studentName ?? 'No child linked',
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.text),
+                              )
+                          : null,
+                      child: Row(
+                        children: [
+                          _buildAvatar(child),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  child?.studentName ?? 'No child linked',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.text),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (child != null)
+                                  Text(
+                                    '${child.classLabel ?? ''} · ${child.schoolName}',
+                                    style: const TextStyle(fontSize: 10, color: AppColors.muted),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
                             ),
-                            if (child != null)
-                              Text(
-                                '${child.classLabel ?? ''} · ${child.schoolName}',
-                                style: const TextStyle(fontSize: 10, color: AppColors.muted),
-                              ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const Spacer(),
                   // Next arrow
                   if (widget.children.length > 1)
                     IconButton(
@@ -753,6 +773,68 @@ class _HomeTabState extends State<_HomeTab> {
                               ),
                             ] else ...[
                               const SizedBox(height: 12),
+
+                              // Student identity card
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                child: GestureDetector(
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => ChildSummaryScreen(child: child, onPhotoUpdated: widget.onPhotoUpdated)),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [Color(0xFF0C3B36), Color(0xFF134E4A)],
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        // Photo
+                                        Container(
+                                          width: 64, height: 64,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.white.withOpacity(0.3), width: 2.5),
+                                          ),
+                                          child: ClipOval(
+                                            child: child.photoUrl != null && child.photoUrl!.isNotEmpty
+                                                ? Image.network(
+                                                    child.photoUrl!,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (_, __, ___) => _initialsAvatar(child),
+                                                  )
+                                                : _initialsAvatar(child),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(child.studentName,
+                                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Colors.white),
+                                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                                              const SizedBox(height: 3),
+                                              if (child.classLabel != null)
+                                                Text(child.classLabel!,
+                                                    style: const TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w600)),
+                                              Text(child.schoolName,
+                                                  style: const TextStyle(fontSize: 11, color: Colors.white54),
+                                                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                                            ],
+                                          ),
+                                        ),
+                                        const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 14),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
 
                               // Global search bar — taps into SearchScreen
                               Padding(

@@ -88,13 +88,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Stack(
                         children: [
                           Container(
-                            width: 70, height: 70,
+                            width: 90, height: 90,
                             decoration: BoxDecoration(
                               gradient: auth.user?.photoUrl == null
                                   ? const LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)])
                                   : null,
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white.withOpacity(0.25), width: 3),
+                              border: Border.all(color: Colors.white.withOpacity(0.3), width: 3),
                             ),
                             child: ClipOval(
                               child: _uploadingPhoto
@@ -102,17 +102,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   : auth.user?.photoUrl != null
                                       ? Image.network(auth.user!.photoUrl!, fit: BoxFit.cover,
                                           errorBuilder: (_, __, ___) => Center(child: Text(initials,
-                                              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white))))
+                                              style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: Colors.white))))
                                       : Center(child: Text(initials,
-                                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white))),
+                                          style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: Colors.white))),
                             ),
                           ),
                           Positioned(
-                            bottom: 0, right: 0,
+                            bottom: 2, right: 2,
                             child: Container(
-                              width: 22, height: 22,
-                              decoration: const BoxDecoration(color: AppColors.teal, shape: BoxShape.circle),
-                              child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                              width: 28, height: 28,
+                              decoration: BoxDecoration(
+                                color: AppColors.teal,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
                             ),
                           ),
                         ],
@@ -165,15 +169,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
                         child: Row(
                           children: [
-                            Container(
-                              width: 42, height: 42,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(colors: [AppColors.teal, Color(0xFF0D9488)]),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Center(child: Text(c.studentName[0],
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white))),
-                            ),
+                            _ChildAvatar(child: c, size: 48),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -270,6 +266,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
+
+class _ChildAvatar extends StatelessWidget {
+  final ChildInfo child;
+  final double size;
+  const _ChildAvatar({required this.child, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final isFemale = child.gender?.toLowerCase() == 'female';
+    final bg = isFemale ? const Color(0xFFF3E8FF) : const Color(0xFFDBEAFE);
+    final fg = isFemale ? const Color(0xFF7C3AED) : const Color(0xFF1D4ED8);
+    final initial = child.studentName.isNotEmpty ? child.studentName[0].toUpperCase() : '?';
+    if (child.photoUrl != null && child.photoUrl!.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          child.photoUrl!,
+          width: size, height: size, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _initials(initial, bg, fg),
+        ),
+      );
+    }
+    return _initials(initial, bg, fg);
+  }
+
+  Widget _initials(String text, Color bg, Color fg) => Container(
+        width: size, height: size,
+        decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+        child: Center(child: Text(text, style: TextStyle(fontSize: size * 0.38, fontWeight: FontWeight.w900, color: fg))),
+      );
 }
 
 class _IconBox extends StatelessWidget {
