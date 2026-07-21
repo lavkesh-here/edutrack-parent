@@ -24,6 +24,7 @@ class FeatureFlags {
   bool get documents   =>  _flags['feature.documents']   ?? true;
   bool get workLogs    =>  _flags['feature.work_logs']   ?? true;
   bool get announcements => _flags['feature.announcements'] ?? true;
+  bool get brainBooster  =>  _flags['feature.brain_booster']  ?? true;
 
   // ── SA-only flags ─────────────────────────────────────────────────────────
 
