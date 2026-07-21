@@ -819,6 +819,11 @@ class ParentApiClient {
     return (data as Map<String, dynamic>)['liked'] as bool? ?? false;
   }
 
+  static Future<bool> toggleForumPostLike(String postId) async {
+    final data = await _post('/api/v1/parent/forum/posts/$postId/like', {});
+    return (data as Map<String, dynamic>)['liked'] as bool? ?? false;
+  }
+
 }  // end ParentApiClient
 
 
@@ -1013,5 +1018,43 @@ extension ParentApiClientAI on ParentApiClient {
       {'language': language},
     );
     return data['explanation'] as String? ?? '';
+  }
+}
+
+// ── Brain Booster ─────────────────────────────────────────────────────────────
+
+extension ParentApiClientBrainBooster on ParentApiClient {
+  static Future<Map<String, dynamic>> brainBoosterSudokuToday() async {
+    return await ParentApiClient._get('/api/v1/parent/brain-booster/sudoku/today') as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> brainBoosterHint(int hintNum) async {
+    return await ParentApiClient._get('/api/v1/parent/brain-booster/sudoku/hint/$hintNum') as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> brainBoosterSubmit({
+    required int puzzleNumber, required int hintsUsed,
+    required int timeSeconds, required List<List<int>> board,
+  }) async {
+    return await ParentApiClient._post('/api/v1/parent/brain-booster/sudoku/submit', {
+      'puzzle_number': puzzleNumber, 'hints_used': hintsUsed,
+      'time_seconds': timeSeconds, 'board': board,
+    }) as Map<String, dynamic>;
+  }
+
+  static Future<dynamic> brainBoosterLeaderboard() async {
+    return await ParentApiClient._get('/api/v1/parent/brain-booster/sudoku/leaderboard');
+  }
+
+  static Future<Map<String, dynamic>> brainBoosterMe() async {
+    return await ParentApiClient._get('/api/v1/parent/brain-booster/me') as Map<String, dynamic>;
+  }
+}
+
+// ── Library (child's issued books) ───────────────────────────────────────────
+
+extension ParentApiClientLibrary on ParentApiClient {
+  static Future<Map<String, dynamic>> childLibraryBooks(String studentId) async {
+    return await ParentApiClient._get('/api/v1/parent/child/$studentId/library') as Map<String, dynamic>;
   }
 }

@@ -23,6 +23,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Map<String, dynamic>? _results;
   bool _loading = false;
   String _lastQuery = '';
+  String? _error;
 
   @override
   void initState() {
@@ -41,12 +42,12 @@ class _SearchScreenState extends State<SearchScreen> {
     final trimmed = q.trim();
     if (trimmed.length < 2 || trimmed == _lastQuery) return;
     _lastQuery = trimmed;
-    setState(() { _loading = true; _results = null; });
+    setState(() { _loading = true; _results = null; _error = null; });
     try {
       final data = await ParentApiClient.globalSearch(widget.child.studentId, trimmed);
       if (mounted) setState(() { _results = data; _loading = false; });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) setState(() { _loading = false; _error = e.toString().replaceFirst('Exception: ', ''); });
     }
   }
 
@@ -99,7 +100,24 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.teal))
-          : _results == null
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('⚠️', style: TextStyle(fontSize: 36)),
+                      const SizedBox(height: 12),
+                      Text(_error!, textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 13, color: AppColors.muted)),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () => _search(_ctrl.text),
+                        child: const Text('Retry', style: TextStyle(color: AppColors.teal)),
+                      ),
+                    ]),
+                  ),
+                )
+              : _results == null
               ? _EmptyState()
               : _totalHits == 0
                   ? const Center(

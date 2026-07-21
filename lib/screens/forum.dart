@@ -99,14 +99,41 @@ class _ForumScreenState extends State<ForumScreen> {
 
 // ── Post card ─────────────────────────────────────────────────────────────────
 
-class _ForumPostCard extends StatelessWidget {
+class _ForumPostCard extends StatefulWidget {
   final ForumPost post;
   final VoidCallback? onCommentTap;
   const _ForumPostCard({required this.post, this.onCommentTap});
 
   @override
+  State<_ForumPostCard> createState() => _ForumPostCardState();
+}
+
+class _ForumPostCardState extends State<_ForumPostCard> {
+  late bool _liked;
+  late int _likeCount;
+  bool _liking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _liked = widget.post.likedByMe;
+    _likeCount = widget.post.likeCount;
+  }
+
+  Future<void> _toggleLike() async {
+    if (_liking) return;
+    setState(() { _liking = true; _liked = !_liked; _likeCount += _liked ? 1 : -1; });
+    try {
+      final result = await ParentApiClient.toggleForumPostLike(widget.post.id);
+      if (mounted) setState(() { _liked = result; _liking = false; });
+    } catch (_) {
+      if (mounted) setState(() { _liked = !_liked; _likeCount += _liked ? 1 : -1; _liking = false; });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final p = post;
+    final p = widget.post;
     final preview = p.previewComment;
     return Container(
       decoration: BoxDecoration(
@@ -214,10 +241,22 @@ class _ForumPostCard extends StatelessWidget {
           // Action bar
           Row(
             children: [
-              const Icon(Icons.favorite_border_rounded, size: 16, color: AppColors.muted),
-              const SizedBox(width: 4),
-              Text('${p.likeCount}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
+              GestureDetector(
+                onTap: _toggleLike,
+                child: Row(
+                  children: [
+                    Icon(
+                      _liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                      size: 16,
+                      color: _liked ? AppColors.coral : AppColors.muted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text('$_likeCount',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                            color: _liked ? AppColors.coral : AppColors.muted)),
+                  ],
+                ),
+              ),
               if (p.allowComments) ...[
                 const SizedBox(width: 14),
                 const Icon(Icons.mode_comment_outlined, size: 15, color: AppColors.muted),
@@ -226,9 +265,9 @@ class _ForumPostCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
               ],
               const Spacer(),
-              if (p.allowComments && onCommentTap != null)
+              if (p.allowComments && widget.onCommentTap != null)
                 GestureDetector(
-                  onTap: onCommentTap,
+                  onTap: widget.onCommentTap,
                   child: Row(
                     children: [
                       Text(
@@ -249,7 +288,7 @@ class _ForumPostCard extends StatelessWidget {
           if (preview != null && p.allowComments) ...[
             const SizedBox(height: 8),
             GestureDetector(
-              onTap: onCommentTap,
+              onTap: widget.onCommentTap,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
@@ -354,6 +393,7 @@ class _ForumCommentsScreenState extends State<_ForumCommentsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bg,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Text(widget.post.title.isNotEmpty ? widget.post.title : 'Comments'),
         centerTitle: false,

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 
@@ -18,6 +20,7 @@ class _VidyaScreenState extends State<VidyaScreen> {
 
   static const _maxChars = 400;
   static const _tealDark = Color(0xFF0C3B36);
+  static const _maxPersistedMessages = 20;
 
   static const _suggestions = [
     'How many days was my child absent?',
@@ -27,6 +30,43 @@ class _VidyaScreenState extends State<VidyaScreen> {
     'What notifications did I receive?',
     'How is attendance this month?',
   ];
+
+  String get _prefsKey => 'vidya_history_${widget.child.studentId}';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefsKey);
+      if (raw != null && mounted) {
+        final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+        setState(() {
+          _messages.addAll(list.map((m) => _Msg(
+            role: m['role'] as String,
+            text: m['text'] as String,
+          )));
+        });
+        _scrollToBottom();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final toSave = _messages.length > _maxPersistedMessages
+          ? _messages.sublist(_messages.length - _maxPersistedMessages)
+          : _messages;
+      await prefs.setString(_prefsKey, jsonEncode(
+        toSave.map((m) => {'role': m.role, 'text': m.text}).toList(),
+      ));
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -62,6 +102,7 @@ class _VidyaScreenState extends State<VidyaScreen> {
       if (mounted) {
         setState(() => _messages.add(_Msg(role: 'assistant', text: reply)));
         _scrollToBottom();
+        _saveHistory();
       }
     } catch (e) {
       if (mounted) {

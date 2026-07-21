@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
+import 'parent_library_tab.dart';
 
 class ChildSummaryScreen extends StatefulWidget {
   final ChildInfo child;
@@ -31,7 +32,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 8, vsync: this);
+    _tab = TabController(length: 9, vsync: this);
     _photoUrl = widget.child.photoUrl;
     _load();
   }
@@ -164,6 +165,7 @@ class _ChildSummaryScreenState extends State<ChildSummaryScreen>
           _SyllabusTab(studentId: widget.child.studentId),
           _ChildCertificatesTab(studentId: widget.child.studentId),
           _PTMTab(studentId: widget.child.studentId),
+          ParentLibraryTab(studentId: widget.child.studentId),
         ],
       ),
     );
@@ -364,8 +366,13 @@ class _StickyTabBar extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: Colors.white,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: overlapsContent
+            ? [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4, offset: const Offset(0, 2))]
+            : [],
+      ),
       child: Column(
         children: [
           Expanded(
@@ -386,17 +393,18 @@ class _StickyTabBar extends SliverPersistentHeaderDelegate {
                 Tab(text: 'Syllabus'),
                 Tab(text: 'Certificates'),
                 Tab(text: 'PTM'),
+                Tab(text: 'Library'),
               ],
             ),
           ),
-          const Divider(height: 1, color: AppColors.border),
+          if (!overlapsContent) const Divider(height: 1, color: AppColors.border),
         ],
       ),
     );
   }
 
   @override
-  bool shouldRebuild(_StickyTabBar old) => false;
+  bool shouldRebuild(_StickyTabBar old) => true;
 }
 
 // ── Child avatar ──────────────────────────────────────────────────────────────
@@ -1779,7 +1787,7 @@ class _PTMMeetingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final teacherName = meeting['teacher_name'] as String? ?? 'Teacher';
-    final eventTitle = meeting['event_title'] as String? ?? 'PTM';
+    final eventTitle = meeting['event_name'] as String? ?? 'PTM';
     final eventDate = meeting['event_date'] as String? ?? '';
     final status = meeting['status'] as String? ?? 'scheduled';
     final remarks = meeting['remarks'] as String?;
