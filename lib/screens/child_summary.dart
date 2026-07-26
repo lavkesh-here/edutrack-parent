@@ -378,10 +378,13 @@ class _StickyTabBar extends SliverPersistentHeaderDelegate {
           Expanded(
             child: TabBar(
               controller: controller,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               labelColor: AppColors.teal,
               unselectedLabelColor: AppColors.muted,
               indicatorColor: AppColors.teal,
               indicatorWeight: 2,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 14),
               labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
               tabs: const [

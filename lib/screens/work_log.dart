@@ -16,6 +16,7 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
   List<WorkLogDate> _dates = [];
   bool _loading = true;
   String _filter = 'all';
+  String _statusFilter = 'all';
   int _days = 30;
 
   @override
@@ -57,14 +58,26 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() { _filter = 'all'; _days = 30; });
+    setState(() { _filter = 'all'; _statusFilter = 'all'; _days = 30; });
     await _load();
   }
 
+  bool _matchesStatusFilter(WorkLogItem item) {
+    switch (_statusFilter) {
+      case 'done': return item.ackStatus == 'completed';
+      case 'not_done': return item.ackStatus == 'incomplete';
+      case 'due': return item.ackStatus == 'pending' || item.ackStatus == 'seen';
+      default: return true;
+    }
+  }
+
   List<WorkLogDate> get _filtered {
-    if (_filter == 'all') return _dates;
+    if (_filter == 'all' && _statusFilter == 'all') return _dates;
     return _dates.map((d) {
-      final logs = d.logs.where((l) => l.logType == _filter).toList();
+      final logs = d.logs
+          .where((l) => _filter == 'all' || l.logType == _filter)
+          .where(_matchesStatusFilter)
+          .toList();
       return WorkLogDate(date: d.date, logs: logs);
     }).where((d) => d.logs.isNotEmpty).toList();
   }
@@ -133,6 +146,22 @@ class _WorkLogScreenState extends State<WorkLogScreen> {
                         _FilterChip(label: '✏️ Classwork', value: 'classwork', current: _filter, onTap: (v) => setState(() => _filter = v)),
                         const SizedBox(width: 8),
                         _FilterChip(label: '📝 Notes', value: 'note', current: _filter, onTap: (v) => setState(() => _filter = v)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 32,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _FilterChip(label: 'All Status', value: 'all', current: _statusFilter, onTap: (v) => setState(() => _statusFilter = v)),
+                        const SizedBox(width: 8),
+                        _FilterChip(label: '✅ Done', value: 'done', current: _statusFilter, onTap: (v) => setState(() => _statusFilter = v)),
+                        const SizedBox(width: 8),
+                        _FilterChip(label: '❌ Not Done', value: 'not_done', current: _statusFilter, onTap: (v) => setState(() => _statusFilter = v)),
+                        const SizedBox(width: 8),
+                        _FilterChip(label: '⏳ Due', value: 'due', current: _statusFilter, onTap: (v) => setState(() => _statusFilter = v)),
                       ],
                     ),
                   ),
