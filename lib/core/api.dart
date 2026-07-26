@@ -890,6 +890,7 @@ class ForumComment {
   final String id;
   final String body;
   final String? authorName;
+  final bool isParentAuthor;
   final String createdAt;
   final String? parentId;
   final int likeCount;
@@ -899,6 +900,7 @@ class ForumComment {
     required this.id,
     required this.body,
     this.authorName,
+    this.isParentAuthor = false,
     required this.createdAt,
     this.parentId,
     this.likeCount = 0,
@@ -909,6 +911,7 @@ class ForumComment {
         id: j['id'].toString(),
         body: j['body'] as String? ?? '',
         authorName: j['author_name'] as String?,
+        isParentAuthor: j['is_parent_author'] as bool? ?? false,
         createdAt: j['created_at'] as String? ?? '',
         parentId: j['parent_id']?.toString(),
         likeCount: j['like_count'] as int? ?? 0,

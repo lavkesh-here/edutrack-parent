@@ -93,6 +93,21 @@ String fmtDate(String raw) {
   }
 }
 
+/// Date + time, e.g. "26 Jul 2026, 05:45 AM" — local time zone.
+String fmtDateTime(String raw) {
+  try {
+    final d = DateTime.parse(raw).toLocal();
+    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final hour12 = d.hour % 12 == 0 ? 12 : d.hour % 12;
+    final period = d.hour < 12 ? 'AM' : 'PM';
+    final minute = d.minute.toString().padLeft(2, '0');
+    return '${d.day} ${months[d.month]} ${d.year}, ${hour12.toString().padLeft(2, '0')}:$minute $period';
+  } catch (_) {
+    return raw;
+  }
+}
+
 class SectionHeader extends StatelessWidget {
   final String title;
   const SectionHeader(this.title, {super.key});

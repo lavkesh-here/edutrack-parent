@@ -302,7 +302,7 @@ class _ForumPostCardState extends State<_ForumPostCard> {
                     style: const TextStyle(fontSize: 12, color: AppColors.text2),
                     children: [
                       TextSpan(
-                        text: '${preview['author'] ?? ''} ',
+                        text: '${preview['author'] ?? ''}${preview['is_parent'] == true ? ' (Parent)' : ''} ',
                         style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.text),
                       ),
                       TextSpan(text: preview['body'] as String? ?? ''),
@@ -623,11 +623,11 @@ class _ForumCommentTileState extends State<_ForumCommentTile> {
                     children: [
                       Expanded(
                         child: Text(
-                          c.authorName ?? 'Teacher',
+                          '${c.authorName ?? 'Teacher'}${c.isParentAuthor ? ' (Parent)' : ''}',
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.text),
                         ),
                       ),
-                      Text(fmtDate(c.createdAt),
+                      Text(fmtDateTime(c.createdAt),
                           style: const TextStyle(fontSize: 10, color: AppColors.muted)),
                     ],
                   ),
