@@ -441,6 +441,15 @@ class ParentApiClient {
     return ParentAuthResponse.fromJson(data as Map<String, dynamic>);
   }
 
+  /// Exchanges the current (still-valid) token for a fresh 7-day one. Call
+  /// whenever the app confirms the parent is still active (resume, biometric
+  /// unlock) so an actively-used session doesn't hit the hard expiry wall —
+  /// only a genuinely idle-for-7-days session should force a re-login.
+  static Future<String> refreshToken() async {
+    final data = await _post('/api/v1/auth/parent/refresh', {});
+    return data['access_token'] as String;
+  }
+
   static Future<void> changePassword({
     required String currentPassword,
     required String newPassword,

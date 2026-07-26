@@ -164,6 +164,10 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
     if (!auth.isLoggedIn) return;
     if (elapsed.inSeconds >= 60 && await auth.isBiometricEnabled) {
       auth.lockApp();
+    } else {
+      // No lock screen to trigger the post-unlock refresh — do it directly
+      // so a resume still counts as activity for the session's expiry.
+      auth.refreshSession();
     }
   }
 
