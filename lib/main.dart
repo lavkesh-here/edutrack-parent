@@ -97,6 +97,7 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
   Timer? _inactivityTimer;
   ParentAuthProvider? _authRef;
   bool _wasLoggedIn = false;
+  String? _fcmToken;
   static const _inactivityDuration = Duration(minutes: 5);
 
   @override
@@ -127,11 +128,17 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
       // Reset branding on logout; school branding is loaded by HomeScreen after children load
       context.read<ParentBrandingProvider>().reset();
     }
+    final justLoggedIn = isLoggedIn && !_wasLoggedIn;
     _wasLoggedIn = isLoggedIn;
     if (isLoggedIn && !_authRef!.isLocked) {
       _resetInactivityTimer();
     } else {
       _inactivityTimer?.cancel();
+    }
+    // The cold-start registration attempt in _setupFcm() runs before login
+    // and 401s for a fresh install — retry now that we have a valid session.
+    if (justLoggedIn && _fcmToken != null) {
+      _registerToken(_fcmToken!);
     }
   }
 
@@ -180,8 +187,15 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
         alert: true, badge: true, sound: true,
       );
 
-      // Register token with backend when logged in
+      // The token is obtained here at cold start, before login has
+      // necessarily happened, so the first _registerToken() call below will
+      // 401 and be silently dropped for a freshly-installed app. Stash it so
+      // _handleAuthChange can retry registration once login succeeds —
+      // otherwise that install never gets a push_tokens row until Firebase
+      // happens to rotate the token on its own (onTokenRefresh), which can
+      // be days or weeks away.
       final token = await messaging.getToken();
+      _fcmToken = token;
       if (token != null) {
         await _registerToken(token);
       }
@@ -198,8 +212,14 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
       // Tap when app was terminated
       final initial = await messaging.getInitialMessage();
       if (initial != null) _handleNotificationTap(initial);
-    } catch (_) {
-      // Firebase not configured; skip silently
+    } catch (e) {
+      // Firebase not configured (e.g. a local dev build with no
+      // google-services.json — the CI build injects a real one from a repo
+      // secret, but a plain `flutter run` locally has no platform folder at
+      // all until `flutter create` is run, so this fires there every time).
+      // Not fatal to the app, but silent otherwise — no push token ever gets
+      // registered and nobody can tell from the UI, so log it for debugging.
+      debugPrint('FCM setup failed, push notifications disabled: $e');
     }
   }
 
@@ -212,7 +232,12 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
         await prefs.setString('push_device_id', deviceId);
       }
       await ParentApiClient.registerPushToken(token, deviceId);
-    } catch (_) {}
+    } catch (e) {
+      // Expected to fail once at cold start before login (401) — that
+      // attempt is retried from _handleAuthChange. Logged so a *persistent*
+      // failure (e.g. after login) is still visible instead of silent.
+      debugPrint('Push token registration failed: $e');
+    }
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
