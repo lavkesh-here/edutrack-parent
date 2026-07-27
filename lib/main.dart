@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/auth.dart';
 import 'core/api.dart';
@@ -21,6 +22,18 @@ import 'screens/force_change_password.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 }
+
+// FCM only auto-posts a system notification for background/terminated
+// delivery — while the app is foregrounded, onMessage fires instead and
+// nothing appears in the Android notification shade unless we post one
+// ourselves via flutter_local_notifications.
+final _localNotifications = FlutterLocalNotificationsPlugin();
+const _fcmChannel = AndroidNotificationChannel(
+  'fcm_default_channel',
+  'Notifications',
+  description: 'Push notifications from EduTrack',
+  importance: Importance.high,
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +51,12 @@ Future<void> main() async {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
     };
+    await _localNotifications.initialize(
+      const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+    );
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_fcmChannel);
   } catch (_) {
     // Firebase not configured yet — Crashlytics unavailable, app runs normally
   }
@@ -243,7 +262,24 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
   void _handleForegroundMessage(RemoteMessage message) {
     final title = message.notification?.title ?? '';
     final body = message.notification?.body ?? '';
-    if (!mounted || title.isEmpty) return;
+    if (title.isEmpty) return;
+
+    _localNotifications.show(
+      message.hashCode,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _fcmChannel.id,
+          _fcmChannel.name,
+          channelDescription: _fcmChannel.description,
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
         content: Column(
