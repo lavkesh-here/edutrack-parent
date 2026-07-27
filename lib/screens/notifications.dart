@@ -72,16 +72,20 @@ class _State extends State<NotificationsScreen> {
     if (child == null) return;
     switch (type) {
       case 'attendance_absent':
+      case 'low_attendance':
         Navigator.push(context, MaterialPageRoute(builder: (_) => AttendanceScreen(child: child)));
         break;
       case 'test_result':
+      case 'upcoming_test':
         Navigator.push(context, MaterialPageRoute(builder: (_) => TestsScreen(child: child)));
         break;
       case 'fee_reminder':
       case 'fee_overdue':
+      case 'fee_paid':
         Navigator.push(context, MaterialPageRoute(builder: (_) => FeesScreen(child: child)));
         break;
       case 'work_log':
+      case 'homework':
         Navigator.push(context, MaterialPageRoute(builder: (_) => WorkLogScreen(child: child)));
         break;
       default:
@@ -104,17 +108,26 @@ class _State extends State<NotificationsScreen> {
 
   String _inboxIcon(String type) {
     switch (type) {
-      case 'attendance_absent': return '🚨';
+      case 'attendance_absent':
+      case 'low_attendance': return '🚨';
       case 'fee_reminder': return '💳';
       case 'fee_overdue': return '⚠️';
+      case 'fee_paid': return '✅';
       case 'leave_reviewed': return '🗓️';
+      case 'homework':
+      case 'work_log': return '📚';
+      case 'test_result':
+      case 'test_published':
+      case 'upcoming_test': return '📊';
+      case 'circular': return '📢';
       default: return '🔔';
     }
   }
 
   Color _inboxColor(String type) {
     switch (type) {
-      case 'attendance_absent': return AppColors.coralLight;
+      case 'attendance_absent':
+      case 'low_attendance': return AppColors.coralLight;
       case 'fee_reminder':
       case 'fee_overdue': return AppColors.amberLight;
       default: return AppColors.tealLight;

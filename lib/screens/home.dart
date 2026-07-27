@@ -98,11 +98,14 @@ class _HomeScreenState extends State<HomeScreen> {
         case 'attendance_absent':
         case 'attendance_present':
         case 'attendance_late':
+        case 'low_attendance':
           setState(() { _idx = 1; _notifDate = parsedDate; });
         case 'test_result':
         case 'test_published':
+        case 'upcoming_test':
           setState(() => _idx = 2);
         case 'work_log':
+        case 'homework':
           if (context.read<ParentAuthProvider>().features.workLogs) {
             setState(() { _idx = 3; _notifDate = parsedDate; });
           } else {
@@ -110,6 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         case 'fee_reminder':
         case 'fee_overdue':
+        case 'fee_paid':
           Navigator.push(context, MaterialPageRoute(builder: (_) => FeesScreen(child: child)));
         case 'circular':
           Navigator.push(context, MaterialPageRoute(builder: (_) => CircularsScreen(child: child)));
@@ -448,7 +452,10 @@ class _HomeTabState extends State<_HomeTab> {
                             children: [
                               Text(n.message, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text)),
                               const SizedBox(height: 4),
-                              Text(n.teacherName ?? '', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                              Text(
+                                [if (n.teacherName != null && n.teacherName!.isNotEmpty) n.teacherName!, fmtDateTime(n.createdAt)].join(' · '),
+                                style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                              ),
                             ],
                           ),
                         );
