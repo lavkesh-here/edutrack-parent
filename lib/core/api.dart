@@ -622,14 +622,6 @@ class ParentApiClient {
     await req.send();
   }
 
-  /// Triggers a real FCM push to every device registered for this account —
-  /// used by a "Send test notification" button so push delivery can be
-  /// confirmed on-device instead of just trusting a 200 response.
-  static Future<Map<String, dynamic>> sendTestPush() async {
-    final data = await _post('/api/v1/parent/push-token/test', {});
-    return Map<String, dynamic>.from(data as Map);
-  }
-
   // ── In-app notification inbox ─────────────────────────────────────────────
 
   static Future<List<Map<String, dynamic>>> getInbox() async {

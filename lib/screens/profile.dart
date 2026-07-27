@@ -61,29 +61,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  bool _sendingTestPush = false;
-
-  Future<void> _sendTestPush(BuildContext context) async {
-    setState(() => _sendingTestPush = true);
-    try {
-      final result = await ParentApiClient.sendTestPush();
-      final delivered = Map<String, dynamic>.from(result['delivered'] as Map? ?? {});
-      final anyDelivered = delivered.values.any((v) => v == true);
-      if (!context.mounted) return;
-      showSnack(
-        context,
-        anyDelivered
-            ? 'Test notification sent — check your phone in a few seconds'
-            : 'Could not deliver to any device — push token may be invalid',
-        error: !anyDelivered,
-      );
-    } catch (e) {
-      if (context.mounted) showSnack(context, 'Failed to send test notification', error: true);
-    } finally {
-      if (mounted) setState(() => _sendingTestPush = false);
-    }
-  }
-
   Future<void> _pickAndUploadPhoto(BuildContext context) async {
     final picker = ImagePicker();
     final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 800);
@@ -277,35 +254,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 8),
                     ],
-                    GestureDetector(
-                      onTap: _sendingTestPush ? null : () => _sendTestPush(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border, width: 1),
-                        ),
-                        child: Row(
-                          children: [
-                            const _IconBox(icon: '🔔', bg: AppColors.tealLight),
-                            const SizedBox(width: 10),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Send Test Notification', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.text)),
-                                  Text('Verify push notifications reach this device', style: TextStyle(fontSize: 11, color: AppColors.muted)),
-                                ],
-                              ),
-                            ),
-                            if (_sendingTestPush)
-                              const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.teal)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
                     GestureDetector(
                       onTap: () => _confirmLogout(context),
                       child: Container(
