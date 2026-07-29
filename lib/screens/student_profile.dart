@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
@@ -98,7 +99,7 @@ class _Body extends StatelessWidget {
                   ),
                   child: ClipOval(
                     child: _v('photo_url') != '—'
-                        ? Image.network(_v('photo_url'), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Text(child.studentName[0].toUpperCase(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white))))
+                        ? CachedNetworkImage(imageUrl: _v('photo_url'), fit: BoxFit.cover, errorWidget: (_, __, ___) => Center(child: Text(child.studentName[0].toUpperCase(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white))))
                         : Center(child: Text(child.studentName[0].toUpperCase(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white))),
                   ),
                 ),

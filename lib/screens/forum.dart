@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
@@ -219,11 +220,11 @@ class _ForumPostCardState extends State<_ForumPostCard> {
                 separatorBuilder: (_, __) => const SizedBox(width: 6),
                 itemBuilder: (_, i) => ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    p.images[i]['gcs_url'] as String? ?? '',
+                  child: CachedNetworkImage(
+                    imageUrl: p.images[i]['gcs_url'] as String? ?? '',
                     width: 90, height: 90,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorWidget: (_, __, ___) => Container(
                       width: 90, height: 90,
                       color: AppColors.bg,
                       child: const Icon(Icons.broken_image_outlined, color: AppColors.muted),

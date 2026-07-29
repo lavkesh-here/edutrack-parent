@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
@@ -281,8 +282,8 @@ void _openImageFullscreen(BuildContext context, List<String> urls, int startInde
               itemCount: urls.length,
               itemBuilder: (_, i) => InteractiveViewer(
                 child: Center(
-                  child: Image.network(urls[i], fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48)),
+                  child: CachedNetworkImage(imageUrl: urls[i], fit: BoxFit.contain,
+                    errorWidget: (_, __, ___) => const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48)),
                 ),
               ),
             ),
@@ -406,10 +407,10 @@ class _WorkLogCard extends StatelessWidget {
                   onTap: () => _openImageFullscreen(context, item.imageUrls, i),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      item.imageUrls[i],
+                    child: CachedNetworkImage(
+                      imageUrl: item.imageUrls[i],
                       width: 80, height: 80, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorWidget: (_, __, ___) => Container(
                         width: 80, height: 80, color: AppColors.bg,
                         child: const Icon(Icons.broken_image_outlined, color: AppColors.muted),
                       ),

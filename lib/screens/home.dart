@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../core/auth.dart';
 import '../core/api.dart';
@@ -359,6 +360,7 @@ class _HomeTab extends StatefulWidget {
 class _HomeTabState extends State<_HomeTab> {
   AttendanceSummary? _attendance;
   bool _loading = true;
+  bool _loadInFlight = false;
   List<ParentNotification> _recentNotifs = [];
   int _unreadCount = 0;
   String? _openSection;
@@ -375,8 +377,10 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   Future<void> _load() async {
+    if (_loadInFlight) return;
     final child = widget.child;
     if (child == null) { if (mounted) setState(() => _loading = false); return; }
+    _loadInFlight = true;
     if (mounted) setState(() => _loading = true);
     try {
       final now = DateTime.now();
@@ -394,6 +398,8 @@ class _HomeTabState extends State<_HomeTab> {
       });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
+    } finally {
+      _loadInFlight = false;
     }
   }
 
@@ -573,10 +579,10 @@ class _HomeTabState extends State<_HomeTab> {
     }
     if (child.photoUrl != null && child.photoUrl!.isNotEmpty) {
       return ClipOval(
-        child: Image.network(
-          child.photoUrl!,
+        child: CachedNetworkImage(
+          imageUrl: child.photoUrl!,
           width: 36, height: 36, fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _initialsCircle(initials(child.studentName), avatarBg, avatarFg),
+          errorWidget: (_, __, ___) => _initialsCircle(initials(child.studentName), avatarBg, avatarFg),
         ),
       );
     }
@@ -814,10 +820,10 @@ class _HomeTabState extends State<_HomeTab> {
                                           ),
                                           child: ClipOval(
                                             child: child.photoUrl != null && child.photoUrl!.isNotEmpty
-                                                ? Image.network(
-                                                    child.photoUrl!,
+                                                ? CachedNetworkImage(
+                                                    imageUrl: child.photoUrl!,
                                                     fit: BoxFit.cover,
-                                                    errorBuilder: (_, __, ___) => _initialsAvatar(child),
+                                                    errorWidget: (_, __, ___) => _initialsAvatar(child),
                                                   )
                                                 : _initialsAvatar(child),
                                           ),

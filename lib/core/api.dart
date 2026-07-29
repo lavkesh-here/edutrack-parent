@@ -270,7 +270,11 @@ class ParentNotification {
 
 class ParentApiClient {
   static const defaultBaseUrl = 'https://edutrack-api-849362142189.asia-south1.run.app';
+  // Android emulator's alias for this Mac's localhost — only reachable from the emulator.
   static const devBaseUrl = 'http://10.0.2.2:8000';
+  // Physical phone on the same WiFi as this Mac — update if the Mac's LAN IP changes
+  // (check with `ipconfig getifaddr en0` on the Mac running the backend).
+  static const devLanBaseUrl = 'http://192.168.1.44:8000';
   static const _prefKeyUrl = 'parent_server_url';
   static const _prefKeyToken = 'parent_auth_token';
 

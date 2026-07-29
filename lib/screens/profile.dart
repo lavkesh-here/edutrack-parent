@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -130,8 +131,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: _uploadingPhoto
                                   ? const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                   : auth.user?.photoUrl != null
-                                      ? Image.network(auth.user!.photoUrl!, fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Center(child: Text(initials,
+                                      ? CachedNetworkImage(imageUrl: auth.user!.photoUrl!, fit: BoxFit.cover,
+                                          errorWidget: (_, __, ___) => Center(child: Text(initials,
                                               style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: Colors.white))))
                                       : Center(child: Text(initials,
                                           style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: Colors.white))),
@@ -331,10 +332,10 @@ class _ChildAvatar extends StatelessWidget {
     final initial = child.studentName.isNotEmpty ? child.studentName[0].toUpperCase() : '?';
     if (child.photoUrl != null && child.photoUrl!.isNotEmpty) {
       return ClipOval(
-        child: Image.network(
-          child.photoUrl!,
+        child: CachedNetworkImage(
+          imageUrl: child.photoUrl!,
           width: size, height: size, fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _initials(initial, bg, fg),
+          errorWidget: (_, __, ___) => _initials(initial, bg, fg),
         ),
       );
     }
