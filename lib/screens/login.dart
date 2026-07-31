@@ -21,6 +21,7 @@ class _ServerEnv {
 
 const _kKnownServers = <_ServerEnv>[
   _ServerEnv('Production', ParentApiClient.defaultBaseUrl),
+  _ServerEnv('Dev (Cloud)', ParentApiClient.devCloudBaseUrl),
   _ServerEnv('Dev (Emulator)', ParentApiClient.devBaseUrl),
   _ServerEnv('Dev (Phone/LAN)', ParentApiClient.devLanBaseUrl),
 ];

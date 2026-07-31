@@ -270,11 +270,22 @@ class ParentNotification {
 
 class ParentApiClient {
   static const defaultBaseUrl = 'https://edutrack-api-849362142189.asia-south1.run.app';
+  // Real cloud dev environment (separate Cloud Run service + DB, added 2026-08-01) —
+  // reachable from any device/network, unlike the two below which need the same LAN
+  // as whoever's laptop is running the backend locally.
+  static const devCloudBaseUrl = 'https://edutrack-api-dev-849362142189.asia-south1.run.app';
   // Android emulator's alias for this Mac's localhost — only reachable from the emulator.
   static const devBaseUrl = 'http://10.0.2.2:8000';
   // Physical phone on the same WiFi as this Mac — update if the Mac's LAN IP changes
   // (check with `ipconfig getifaddr en0` on the Mac running the backend).
-  static const devLanBaseUrl = 'http://192.168.1.44:8000';
+  static const devLanBaseUrl = 'http://192.168.1.6:8000';
+  // Non-prod builds (APP_ENV != 'production') default to the cloud dev backend, NOT
+  // prod — a fresh install of a dev build must never silently point at real prod data.
+  // Pass --dart-define=APP_ENV=production at build time to flip this.
+  static const _defaultBaseUrl =
+      String.fromEnvironment('APP_ENV', defaultValue: 'dev') == 'production'
+          ? defaultBaseUrl
+          : devCloudBaseUrl;
   static const _prefKeyUrl = 'parent_server_url';
   static const _prefKeyToken = 'parent_auth_token';
 
@@ -282,7 +293,7 @@ class ParentApiClient {
 
   static Future<String> getBaseUrl() async {
     final p = await SharedPreferences.getInstance();
-    return p.getString(_prefKeyUrl) ?? defaultBaseUrl;
+    return p.getString(_prefKeyUrl) ?? _defaultBaseUrl;
   }
 
   static Future<void> setBaseUrl(String url) async {
