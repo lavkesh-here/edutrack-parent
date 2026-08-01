@@ -637,6 +637,13 @@ class ParentApiClient {
     await req.send();
   }
 
+  // ── Force-update check ───────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> checkVersionPolicy() async {
+    final data = await _get('/api/v1/parent/version-check');
+    return data as Map<String, dynamic>;
+  }
+
   // ── In-app notification inbox ─────────────────────────────────────────────
 
   static Future<List<Map<String, dynamic>>> getInbox() async {

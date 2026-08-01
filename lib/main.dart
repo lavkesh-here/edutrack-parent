@@ -13,6 +13,7 @@ import 'core/api.dart';
 import 'core/branding.dart';
 import 'core/device_context.dart';
 import 'core/theme.dart';
+import 'core/version_check.dart';
 import 'screens/login.dart';
 import 'screens/home.dart';
 import 'screens/force_change_password.dart';
@@ -158,6 +159,9 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
     // and 401s for a fresh install — retry now that we have a valid session.
     if (justLoggedIn && _fcmToken != null) {
       _registerToken(_fcmToken!);
+    }
+    if (justLoggedIn) {
+      checkForForcedUpdate(context);
     }
   }
 
