@@ -65,7 +65,10 @@ ThemeData buildTheme([Color primary = AppColors.sun]) => ThemeData(
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          // Full stadium shape (radius 40) crowds text against the curved
+          // ends without generous horizontal padding — matches the same fix
+          // applied to teacher_app's theme.dart.
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           textStyle: const TextStyle(
             fontFamily: 'Outfit',
             fontWeight: FontWeight.w700,
