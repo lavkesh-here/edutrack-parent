@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
+import '../widgets/chat_feedback_bar.dart';
 
 class SupportChatScreen extends StatefulWidget {
   const SupportChatScreen({super.key});
@@ -183,7 +184,16 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                     itemCount: _messages.length + (_loading ? 1 : 0),
                     itemBuilder: (context, i) {
                       if (i == _messages.length) return const _TypingBubble();
-                      return _MessageBubble(msg: _messages[i]);
+                      final msg = _messages[i];
+                      final showFeedback = msg.role == 'model' && !msg.isError && i > 0;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _MessageBubble(msg: msg),
+                          if (showFeedback)
+                            ChatFeedbackBar(bot: 'support', question: _messages[i - 1].text, reply: msg.text),
+                        ],
+                      );
                     },
                   ),
           ),
@@ -210,7 +220,10 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                       decoration: const InputDecoration(
                         hintText: 'Ask anything about the app…',
                         hintStyle: TextStyle(color: AppColors.muted, fontSize: 14),
+                        filled: false,
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                         counterText: '',
                         isDense: true,
                         contentPadding: EdgeInsets.symmetric(vertical: 8),

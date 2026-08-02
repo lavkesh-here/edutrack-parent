@@ -823,6 +823,24 @@ class ParentApiClient {
     return data['reply'] as String;
   }
 
+  // ── Chat feedback (Vidya + Support) ────────────────────────────────────────
+
+  static Future<void> submitChatFeedback({
+    required String bot,
+    required String question,
+    required String reply,
+    required String rating,
+    String? reason,
+  }) async {
+    await _post('/api/v1/parent/chat-feedback', {
+      'bot': bot,
+      'question': question,
+      'reply': reply,
+      'rating': rating,
+      if (reason != null) 'reason': reason,
+    });
+  }
+
   // ── Forum ──────────────────────────────────────────────────────────────────
 
   static Future<List<ForumPost>> getForumPosts({int page = 0, int pageSize = 20}) async {
