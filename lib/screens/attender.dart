@@ -134,7 +134,9 @@ class _State extends State<AttenderScreen> {
                               phone: phoneCtrl.text.trim(),
                               relation: relCtrl.text.trim().isEmpty ? 'Parent' : relCtrl.text.trim(),
                             );
-                            // Upload photo if picked
+                            // Upload photo if picked. The attender record above is already
+                            // created and saved regardless of what happens here.
+                            bool photoFailed = false;
                             if (pickedPhoto != null && mounted) {
                               try {
                                 final latest = await ParentApiClient.getAttenders(widget.child.studentId);
@@ -142,11 +144,20 @@ class _State extends State<AttenderScreen> {
                                   final newId = latest.last['id'].toString();
                                   await _doUpload(pickedPhoto!, newId);
                                 }
-                              } catch (_) {}
+                              } catch (_) {
+                                photoFailed = true;
+                              }
                             }
                             if (mounted) {
                               Navigator.pop(ctx);
                               _load();
+                              if (photoFailed) {
+                                showSnack(
+                                  context,
+                                  'Attender added, but the photo could not be uploaded. Tap their photo to try again.',
+                                  error: true,
+                                );
+                              }
                             }
                           } on ApiError catch (e) {
                             setS(() => saving = false);

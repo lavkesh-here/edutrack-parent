@@ -1,7 +1,9 @@
 // TC-PA-AUTH-001..003 | TC-PA-HOME-001 | TC-PA-ATT-001
 // Parent App integration tests — 2-step login, dashboard, attendance, work log.
-// Run: flutter test integration_test/auth_flow_test.dart
-// Requires: backend at http://localhost:8000, demo parent account seeded.
+// Run: flutter test integration_test/auth_flow_test.dart -d macos
+// Non-production builds default to the real DEV Cloud Run backend (see
+// ParentApiClient._defaultBaseUrl) -- no backend needs to be started locally.
+// Uses the real seeded DEV parent account (Rohan Malhotra / child Kabir Malhotra).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +12,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:edutrack_parent/main.dart' as app;
 
 const _schoolCode = 'DEMO001';
-const _phone      = '9000000001';
+const _phone      = '9800000001';
 const _password   = 'demo1234';
 
 /// Helper: boots app, navigates through 2-step login, asserts home is reached.
