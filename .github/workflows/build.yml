@@ -46,9 +46,9 @@ jobs:
           sed -i 's/import io.flutter.embedding.android.FlutterActivity/import io.flutter.embedding.android.FlutterFragmentActivity/' "$MAIN"
           sed -i 's/class MainActivity: FlutterActivity()/class MainActivity: FlutterFragmentActivity()/' "$MAIN"
 
-      - name: Set app label to Parent (Dev)
+      - name: Set app label to Edtrack Parent (Dev)
         run: |
-          sed -i 's/android:label="edutrack_parent"/android:label="Parent (Dev)"/' \
+          sed -i 's/android:label="edutrack_parent"/android:label="Edtrack Parent (Dev)"/' \
             android/app/src/main/AndroidManifest.xml
 
       - name: Disable minify/shrink
@@ -183,9 +183,9 @@ jobs:
           sed -i 's/import io.flutter.embedding.android.FlutterActivity/import io.flutter.embedding.android.FlutterFragmentActivity/' "$MAIN"
           sed -i 's/class MainActivity: FlutterActivity()/class MainActivity: FlutterFragmentActivity()/' "$MAIN"
 
-      - name: Set app label to Parent
+      - name: Set app label to Edtrack Parent
         run: |
-          sed -i 's/android:label="edutrack_parent"/android:label="Parent"/' \
+          sed -i 's/android:label="edutrack_parent"/android:label="Edtrack Parent"/' \
             android/app/src/main/AndroidManifest.xml
 
       - name: Disable minify/shrink

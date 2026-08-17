@@ -1,5 +1,5 @@
 name: edutrack_parent
-description: EduTrack Parent App — attendance, results, work logs, notifications.
+description: Edtrack Parent App — attendance, results, work logs, notifications.
 
 publish_to: 'none'
 version: 1.0.0+1

@@ -53,7 +53,7 @@ class ParentAuthProvider extends ChangeNotifier {
   Future<String?> unlockApp() async {
     try {
       final authed = await _localAuth.authenticate(
-        localizedReason: 'Unlock EduTrack Parent',
+        localizedReason: 'Unlock Edtrack Parent',
         options: const AuthenticationOptions(biometricOnly: false, stickyAuth: true),
       );
       if (!authed) return 'Authentication cancelled.';

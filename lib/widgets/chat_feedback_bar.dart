@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 
-/// Thumbs up/down on a single Vidya or EduTrack Support reply. Thumbs-down
+/// Thumbs up/down on a single Vidya or Edtrack Support reply. Thumbs-down
 /// opens a reason-chip picker before submitting; thumbs-up submits directly.
 /// Self-contained — owns its own submitted/rating state, independent of the
 /// chat screen's message list.

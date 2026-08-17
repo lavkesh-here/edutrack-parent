@@ -131,7 +131,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('EduTrack Support', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            Text('Edtrack Support', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             Text('App help only • Replies may not be perfect',
                 style: TextStyle(fontSize: 10, color: AppColors.muted, fontWeight: FontWeight.w400)),
           ],
@@ -166,7 +166,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'I can only answer questions about using the EduTrack app.',
+                    'I can only answer questions about using the Edtrack app.',
                     style: TextStyle(fontSize: 12, color: AppColors.text2),
                   ),
                 ),

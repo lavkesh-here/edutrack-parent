@@ -34,7 +34,7 @@ class AboutScreen extends StatelessWidget {
               child: const Center(child: Text('👨‍👩‍👧', style: TextStyle(fontSize: 34))),
             ),
             const SizedBox(height: 16),
-            const Text('EduTrack Parent', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
+            const Text('Edtrack Parent', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
             const SizedBox(height: 4),
             const Text('Version 1.0.0', style: TextStyle(fontSize: 13, color: AppColors.muted)),
             const SizedBox(height: 32),
@@ -50,11 +50,11 @@ class AboutScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('About EduTrack',
+                  const Text('About Edtrack',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.text)),
                   const SizedBox(height: 10),
                   const Text(
-                    'EduTrack is a school management platform that helps parents stay connected with their child\'s academic progress. View attendance, test results, homework, and important school communications — all in one place.',
+                    'Edtrack is a school management platform that helps parents stay connected with their child\'s academic progress. View attendance, test results, homework, and important school communications — all in one place.',
                     style: TextStyle(fontSize: 13, color: AppColors.text2, height: 1.6),
                   ),
                 ],
@@ -89,7 +89,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             const Text(
-              '© 2026 EduTrack. All rights reserved.',
+              '© 2026 Edtrack Technologies. All rights reserved.',
               style: TextStyle(fontSize: 11, color: AppColors.muted),
               textAlign: TextAlign.center,
             ),

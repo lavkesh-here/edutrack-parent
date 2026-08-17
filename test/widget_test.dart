@@ -104,14 +104,14 @@ void main() {
 
     test('version prefix added correctly', () {
       const version = '1.0.0+5';
-      final label = version.isEmpty ? 'EduTrack Parent' : 'EduTrack Parent v$version';
-      expect(label, equals('EduTrack Parent v1.0.0+5'));
+      final label = version.isEmpty ? 'Edtrack Parent' : 'Edtrack Parent v$version';
+      expect(label, equals('Edtrack Parent v1.0.0+5'));
     });
 
     test('fallback when version empty', () {
       const version = '';
-      final label = version.isEmpty ? 'EduTrack Parent' : 'EduTrack Parent v$version';
-      expect(label, equals('EduTrack Parent'));
+      final label = version.isEmpty ? 'Edtrack Parent' : 'Edtrack Parent v$version';
+      expect(label, equals('Edtrack Parent'));
     });
   });
 

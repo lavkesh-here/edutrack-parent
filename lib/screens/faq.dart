@@ -342,7 +342,7 @@ const _faqSections = <_FaqSection>[
       ),
       _FaqItem(
         'I am not receiving any notifications. What should I do?',
-        'Make sure notifications are enabled for EduTrack in your phone\'s Settings → Apps. '
+        'Make sure notifications are enabled for Edtrack in your phone\'s Settings → Apps. '
             'Also check that you are not in Do Not Disturb mode.',
       ),
     ],

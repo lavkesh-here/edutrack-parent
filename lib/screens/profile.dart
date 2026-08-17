@@ -286,7 +286,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 32),
               Center(
                 child: Text(
-                  _appVersion.isEmpty ? 'EduTrack Parent' : 'EduTrack Parent v$_appVersion',
+                  _appVersion.isEmpty ? 'Edtrack Parent' : 'Edtrack Parent v$_appVersion',
                   style: const TextStyle(fontSize: 11, color: AppColors.muted),
                 ),
               ),
