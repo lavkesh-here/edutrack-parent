@@ -1,9 +1,36 @@
+# Flutter/Dart
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
-build/
-*.iml
-.idea/
-*.log
 pubspec.lock
+build/
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+*.iml
+*.ipr
+*.iws
+.idea/
+.DS_Store
+*.class
+*.log
+*.pyc
+*.swp
+.project
+.settings
+.classpath
+local.properties
+
+# Generated
+*.g.dart
+*.freezed.dart
+
+# Claude Code session artifacts
+.claude/
+
+# Downloaded/local build artifacts
+*.apk

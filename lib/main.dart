@@ -331,6 +331,11 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
     if (auth.isLoggedIn && auth.user != null) {
       try {
         FirebaseCrashlytics.instance.setUserIdentifier('parent_${auth.user!.parentId}');
+        FirebaseCrashlytics.instance.setCustomKey('role', 'parent');
+        // No 'school' key here (unlike teacher_app) — ParentUser (core/auth.dart)
+        // doesn't carry school_id/name today; the login response would need to
+        // include it first. Tracked as a follow-up, not done as part of this
+        // fix to avoid adding a network dependency to Crashlytics setup.
       } catch (_) {}
     }
 
