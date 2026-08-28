@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as dev;
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -334,6 +335,22 @@ class ParentApiClient {
   }
 
   static void _log(String method, String path, int status, int ms, {String? requestId, String? error}) {
+    if (error != null) {
+      // Record to Crashlytics regardless of build mode — this is what makes a
+      // backend error correlatable to a support report after the fact. The
+      // request_id round-trips from the backend's X-Request-ID header all the
+      // way to a queryable Crashlytics record instead of dead-ending in a
+      // debug-only console line (see backend/docs/OBSERVABILITY.md).
+      try {
+        FirebaseCrashlytics.instance.setCustomKey('last_request_id', requestId ?? 'none');
+        FirebaseCrashlytics.instance.recordError(
+          'API error: $method $path -> $status',
+          null,
+          reason: error,
+          fatal: false,
+        );
+      } catch (_) {}
+    }
     if (!kDebugMode) return;
     final rid = requestId != null ? ' [rid=$requestId]' : '';
     if (error != null) {
@@ -355,12 +372,12 @@ class ParentApiClient {
     if (res.statusCode == 401) {
       _log('GET', path, 401, ms, requestId: rid, error: 'session expired');
       await onUnauthorized?.call();
-      throw ApiError('Session expired. Please log in again.', 401);
+      throw ApiError('Session expired. Please log in again.', 401, requestId: rid);
     }
     if (res.statusCode >= 400) {
       final detail = _errorDetail(res);
       _log('GET', path, res.statusCode, ms, requestId: rid, error: detail);
-      throw ApiError(detail, res.statusCode);
+      throw ApiError(detail, res.statusCode, requestId: rid);
     }
     _log('GET', path, res.statusCode, ms, requestId: rid);
     return jsonDecode(utf8.decode(res.bodyBytes));
@@ -378,12 +395,12 @@ class ParentApiClient {
     if (res.statusCode == 401) {
       _log('DELETE', path, 401, ms, requestId: rid, error: 'session expired');
       await onUnauthorized?.call();
-      throw ApiError('Session expired. Please log in again.', 401);
+      throw ApiError('Session expired. Please log in again.', 401, requestId: rid);
     }
     if (res.statusCode >= 400) {
       final detail = _errorDetail(res);
       _log('DELETE', path, res.statusCode, ms, requestId: rid, error: detail);
-      throw ApiError(detail, res.statusCode);
+      throw ApiError(detail, res.statusCode, requestId: rid);
     }
     _log('DELETE', path, res.statusCode, ms, requestId: rid);
     if (res.body.isEmpty) return <String, dynamic>{};
@@ -403,12 +420,12 @@ class ParentApiClient {
     if (res.statusCode == 401) {
       _log('PATCH', path, 401, ms, requestId: rid, error: 'session expired');
       await onUnauthorized?.call();
-      throw ApiError('Session expired. Please log in again.', 401);
+      throw ApiError('Session expired. Please log in again.', 401, requestId: rid);
     }
     if (res.statusCode >= 400) {
       final detail = _errorDetail(res);
       _log('PATCH', path, res.statusCode, ms, requestId: rid, error: detail);
-      throw ApiError(detail, res.statusCode);
+      throw ApiError(detail, res.statusCode, requestId: rid);
     }
     _log('PATCH', path, res.statusCode, ms, requestId: rid);
     return jsonDecode(utf8.decode(res.bodyBytes));
@@ -427,12 +444,12 @@ class ParentApiClient {
     if (res.statusCode == 401) {
       _log('POST', path, 401, ms, requestId: rid, error: 'session expired');
       if (handleUnauthorized) await onUnauthorized?.call();
-      throw ApiError(handleUnauthorized ? 'Session expired. Please log in again.' : 'Invalid credentials', 401);
+      throw ApiError(handleUnauthorized ? 'Session expired. Please log in again.' : 'Invalid credentials', 401, requestId: rid);
     }
     if (res.statusCode >= 400) {
       final detail = _errorDetail(res);
       _log('POST', path, res.statusCode, ms, requestId: rid, error: detail);
-      throw ApiError(detail, res.statusCode);
+      throw ApiError(detail, res.statusCode, requestId: rid);
     }
     _log('POST', path, res.statusCode, ms, requestId: rid);
     return jsonDecode(utf8.decode(res.bodyBytes));
@@ -554,6 +571,15 @@ class ParentApiClient {
     return data as Map<String, dynamic>;
   }
 
+  /// TR-006/EDR-0019. Live position of the vehicle assigned to this child's
+  /// route, if any -- never a raw vehicle_id (the backend deliberately
+  /// strips it, see parent.py::get_child_transport_location's own
+  /// docstring: a parent must never be able to enumerate buses).
+  static Future<Map<String, dynamic>> getTransportLocation(String studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/transport/location');
+    return data as Map<String, dynamic>;
+  }
+
   static Future<Map<String, dynamic>> getFees(String studentId, {String? academicYear}) async {
     var path = '/api/v1/parent/child/$studentId/fees';
     if (academicYear != null) path += '?academic_year=$academicYear';
@@ -594,11 +620,17 @@ class ParentApiClient {
       Uri.parse('$base/api/v1/parent/child/$studentId/attenders/$attenderId'),
       headers: await _headers(),
     ).timeout(const Duration(seconds: 20));
+    final rid = res.headers['x-request-id'];
     if (res.statusCode == 401) {
+      _log('DELETE', 'attenders/$attenderId', 401, 0, requestId: rid, error: 'session expired');
       await onUnauthorized?.call();
-      throw ApiError('Session expired. Please log in again.', 401);
+      throw ApiError('Session expired. Please log in again.', 401, requestId: rid);
     }
-    if (res.statusCode >= 400) throw ApiError(_errorDetail(res), res.statusCode);
+    if (res.statusCode >= 400) {
+      final detail = _errorDetail(res);
+      _log('DELETE', 'attenders/$attenderId', res.statusCode, 0, requestId: rid, error: detail);
+      throw ApiError(detail, res.statusCode, requestId: rid);
+    }
   }
 
   static Future<List<Map<String, dynamic>>> getTeachers(String studentId) async {
@@ -617,11 +649,17 @@ class ParentApiClient {
       Uri.parse('$base/api/v1/parent/devices/$sessionId'),
       headers: await _headers(),
     ).timeout(const Duration(seconds: 20));
+    final rid = res.headers['x-request-id'];
     if (res.statusCode == 401) {
+      _log('DELETE', 'devices/$sessionId', 401, 0, requestId: rid, error: 'session expired');
       await onUnauthorized?.call();
-      throw ApiError('Session expired. Please log in again.', 401);
+      throw ApiError('Session expired. Please log in again.', 401, requestId: rid);
     }
-    if (res.statusCode >= 400) throw ApiError(_errorDetail(res), res.statusCode);
+    if (res.statusCode >= 400) {
+      final detail = _errorDetail(res);
+      _log('DELETE', 'devices/$sessionId', res.statusCode, 0, requestId: rid, error: detail);
+      throw ApiError(detail, res.statusCode, requestId: rid);
+    }
   }
   // ── Push token registration ───────────────────────────────────────────────
 
@@ -962,7 +1000,8 @@ class ForumComment {
 class ApiError implements Exception {
   final String message;
   final int statusCode;
-  const ApiError(this.message, this.statusCode);
+  final String? requestId;
+  const ApiError(this.message, this.statusCode, {this.requestId});
 
   @override
   String toString() => message;
