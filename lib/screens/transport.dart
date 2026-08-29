@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
+import '../widgets/bus_map.dart';
 
 class TransportScreen extends StatefulWidget {
   final ChildInfo child;
@@ -298,7 +299,10 @@ class _LiveLocationCard extends StatelessWidget {
                     ? '${age.inHours}h ago'
                     : '${age.inDays}d ago';
 
-    return _Shell(
+    final lat = (position['latitude'] as num?)?.toDouble();
+    final lng = (position['longitude'] as num?)?.toDouble();
+
+    final shell = _Shell(
       state: state,
       title: 'Live Location',
       subtitle: switch (state) {
@@ -307,6 +311,18 @@ class _LiveLocationCard extends StatelessWidget {
         _LiveState.stale => 'Signal is stale · last seen $ageLabel',
         _LiveState.none => 'No GPS signal',
       },
+    );
+
+    // issue-4/10: the map itself, on top of the existing status card --
+    // "where is the bus" was already answered in words (Live · 12 km/h);
+    // this answers it visually, which is what was actually asked for.
+    if (lat == null || lng == null) return shell;
+    return Column(
+      children: [
+        BusMap(latitude: lat, longitude: lng, isStale: state == _LiveState.stale),
+        const SizedBox(height: 10),
+        shell,
+      ],
     );
   }
 }
