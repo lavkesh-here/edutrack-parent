@@ -319,7 +319,7 @@ class _LiveLocationCard extends StatelessWidget {
     if (lat == null || lng == null) return shell;
     return Column(
       children: [
-        BusMap(latitude: lat, longitude: lng, isStale: state == _LiveState.stale),
+        BusMap(latitude: lat, longitude: lng, isStale: state == _LiveState.stale, ignitionOn: ignitionOn),
         const SizedBox(height: 10),
         shell,
       ],
