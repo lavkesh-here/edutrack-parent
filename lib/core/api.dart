@@ -630,13 +630,23 @@ class ParentApiClient {
     required String addressText,
     required double latitude,
     required double longitude,
+    Map<String, String?>? addressComponents,
   }) async {
     await _put('/api/v1/parent/child/$studentId/pickup-address', {
       'address_text': addressText,
       'latitude': latitude,
       'longitude': longitude,
       'consent_confirmed': true, // gated on an explicit in-app confirmation dialog before this call
+      if (addressComponents != null) 'address_components': addressComponents,
     });
+  }
+
+  // Structured pickup-address redesign (2026-09-06): turns a device GPS fix
+  // into address-field suggestions -- never authoritative, the parent still
+  // reviews/edits before saving via savePickupAddress above.
+  static Future<Map<String, dynamic>> reverseGeocode(double latitude, double longitude) async {
+    final data = await _get('/api/v1/parent/geocode/reverse-lookup?latitude=$latitude&longitude=$longitude');
+    return (data as Map<String, dynamic>)['suggested'] as Map<String, dynamic>;
   }
 
   static Future<Map<String, dynamic>> getTransportEta(String studentId) async {

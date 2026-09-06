@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
@@ -24,10 +25,21 @@ class _State extends State<TransportScreen> {
   // transport/GPS mission: a sensible interval, never hammering the vendor,
   // with an explicit stale/offline state rather than pretending a bus is
   // still "live" once its last fix is old).
+  //
+  // Shortened 25s -> 4s -> 2s (2026-09-06, live-verified feedback): Admin
+  // Web's own simulation ticks every 3s and patches its screen instantly, so
+  // a slower poll here reads as "not moving" even when everything behind it
+  // is working. 2s (below the 3s tick rate) is as close to real-time as
+  // polling gets without WebSockets/SSE -- explicitly not pursued for this
+  // simulator-only feature (real-time push infra deferred, decided
+  // 2026-09-06: meaningful new infra -- WebSocket/SSE + Redis pub/sub +
+  // client rework on 3 codebases -- to perfectly sync a bus that isn't real
+  // hardware yet; GPS-01 still unresolved, see CLAUDE.md's "Customer Ready:
+  // No" status).
   Map<String, dynamic>? _location;
   bool _locationLoading = true;
   Timer? _locationTimer;
-  static const _pollInterval = Duration(seconds: 25);
+  static const _pollInterval = Duration(seconds: 2);
 
   // EDR-0027 (TR-014 Decision B): pickup address + live ETA. Polled on the
   // same cadence as live location, above -- both are cheap reads over the
@@ -373,13 +385,25 @@ class _StopHistoryCard extends StatelessWidget {
   (String, Color, Color) _statusStyle(String status) {
     switch (status) {
       case 'completed':
-        return ('On time', AppColors.teal, AppColors.tealLight);
+        return ('Completed', AppColors.teal, AppColors.tealLight);
       case 'missed':
         return ('Missed', AppColors.coral, AppColors.coralLight);
       case 'cancelled':
         return ('Cancelled', AppColors.muted, const Color(0xFFF3F4F6));
       default:
         return ('Pending', AppColors.muted, const Color(0xFFF3F4F6));
+    }
+  }
+
+  // Matches health_incidents.dart's own _formatTime convention (no shared
+  // helper between screens in this app -- see that file).
+  String? _formatTime(String? iso) {
+    if (iso == null) return null;
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return null;
     }
   }
 
@@ -398,6 +422,10 @@ class _StopHistoryCard extends StatelessWidget {
               final (label, fg, bg) = _statusStyle(entry['status']?.toString() ?? 'pending');
               final direction = entry['direction']?.toString() == 'drop' ? 'Drop' : 'Pickup';
               final stopName = entry['stop_name']?.toString();
+              // The actual pickup/drop moment, not just the categorical status --
+              // occurred_at was already returned by the backend but never rendered.
+              final time = _formatTime(entry['occurred_at']?.toString()) ?? _formatTime(entry['planned_at']?.toString());
+              final dateLine = time != null ? '${entry['date']} · $direction · $time' : '${entry['date']} · $direction';
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Row(
@@ -406,7 +434,7 @@ class _StopHistoryCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('${entry['date']} · $direction', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.text)),
+                          Text(dateLine, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.text)),
                           if (stopName != null) Text(stopName, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
                         ],
                       ),
@@ -655,35 +683,130 @@ class PickupAddressSheet extends StatefulWidget {
 }
 
 class _PickupAddressSheetState extends State<PickupAddressSheet> {
-  late final _addressCtrl = TextEditingController(text: widget.existing?['address_text'] as String? ?? '');
-  late final _latCtrl = TextEditingController(text: widget.existing?['latitude']?.toString() ?? '');
-  late final _lonCtrl = TextEditingController(text: widget.existing?['longitude']?.toString() ?? '');
+  // Structured entry redesign (2026-09-06): replaces the old single free-text
+  // field + two manual lat/long boxes -- nobody should have to know or type
+  // their own GPS coordinates. Coordinates now only ever come from the
+  // device itself (via "Use my current location"), never typed.
+  Map<String, dynamic>? get _existingComponents =>
+      widget.existing?['address_components'] as Map<String, dynamic>?;
+
+  late final _houseNoCtrl = TextEditingController(text: _existingComponents?['house_no'] as String? ?? '');
+  late final _sectorCtrl = TextEditingController(text: _existingComponents?['sector'] as String? ?? '');
+  late final _addressLine1Ctrl = TextEditingController(
+    text: _existingComponents?['address_line1'] as String? ?? widget.existing?['address_text'] as String? ?? '',
+  );
+  late final _landmarkCtrl = TextEditingController(text: _existingComponents?['landmark'] as String? ?? '');
+  late final _cityCtrl = TextEditingController(text: _existingComponents?['city'] as String? ?? '');
+  late final _stateCtrl = TextEditingController(text: _existingComponents?['state'] as String? ?? '');
+  late final _pincodeCtrl = TextEditingController(text: _existingComponents?['pincode'] as String? ?? '');
+
+  // Not shown to the user at all -- carried silently from either a prior save
+  // (re-editing an existing address without necessarily re-capturing location)
+  // or a fresh "Use my current location" tap.
+  late double? _capturedLat = (widget.existing?['latitude'] as num?)?.toDouble();
+  late double? _capturedLon = (widget.existing?['longitude'] as num?)?.toDouble();
+
   bool _consentChecked = false;
   bool _saving = false;
+  bool _locating = false;
 
   @override
   void dispose() {
-    _addressCtrl.dispose();
-    _latCtrl.dispose();
-    _lonCtrl.dispose();
+    _houseNoCtrl.dispose();
+    _sectorCtrl.dispose();
+    _addressLine1Ctrl.dispose();
+    _landmarkCtrl.dispose();
+    _cityCtrl.dispose();
+    _stateCtrl.dispose();
+    _pincodeCtrl.dispose();
     super.dispose();
   }
 
+  Future<void> _useCurrentLocation() async {
+    setState(() => _locating = true);
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      final granted = permission == LocationPermission.always || permission == LocationPermission.whileInUse;
+      if (!granted) {
+        if (mounted) showSnack(context, 'Location permission is needed to fill this in automatically', error: true);
+        return;
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        if (mounted) showSnack(context, 'Turn on location services and try again', error: true);
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      final suggested = await ParentApiClient.reverseGeocode(pos.latitude, pos.longitude);
+      if (!mounted) return;
+      setState(() {
+        _capturedLat = pos.latitude;
+        _capturedLon = pos.longitude;
+        _houseNoCtrl.text = (suggested['house_no'] as String?) ?? _houseNoCtrl.text;
+        _sectorCtrl.text = (suggested['sector'] as String?) ?? _sectorCtrl.text;
+        _addressLine1Ctrl.text = (suggested['address_line1'] as String?) ?? _addressLine1Ctrl.text;
+        _landmarkCtrl.text = (suggested['landmark'] as String?) ?? _landmarkCtrl.text;
+        _cityCtrl.text = (suggested['city'] as String?) ?? _cityCtrl.text;
+        _stateCtrl.text = (suggested['state'] as String?) ?? _stateCtrl.text;
+        _pincodeCtrl.text = (suggested['pincode'] as String?) ?? _pincodeCtrl.text;
+      });
+      showSnack(context, 'Location captured — please check the fields below before saving');
+    } catch (_) {
+      if (mounted) showSnack(context, 'Could not get your location — check GPS and try again', error: true);
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
   Future<void> _submit() async {
-    final address = _addressCtrl.text.trim();
-    final lat = double.tryParse(_latCtrl.text.trim());
-    final lon = double.tryParse(_lonCtrl.text.trim());
-    if (address.isEmpty || lat == null || lon == null) {
-      showSnack(context, 'Enter an address and valid coordinates', error: true);
+    final pincode = _pincodeCtrl.text.trim();
+    if (pincode.isEmpty) {
+      showSnack(context, 'Pincode is required', error: true);
+      return;
+    }
+    if (_capturedLat == null || _capturedLon == null) {
+      showSnack(context, 'Tap "Use my current location" so we know where to look for the bus', error: true);
       return;
     }
     if (!_consentChecked) {
       showSnack(context, 'Please confirm you agree to share this location', error: true);
       return;
     }
+
+    final components = <String, String?>{
+      'house_no': _houseNoCtrl.text.trim().isEmpty ? null : _houseNoCtrl.text.trim(),
+      'sector': _sectorCtrl.text.trim().isEmpty ? null : _sectorCtrl.text.trim(),
+      'address_line1': _addressLine1Ctrl.text.trim().isEmpty ? null : _addressLine1Ctrl.text.trim(),
+      'landmark': _landmarkCtrl.text.trim().isEmpty ? null : _landmarkCtrl.text.trim(),
+      'city': _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
+      'state': _stateCtrl.text.trim().isEmpty ? null : _stateCtrl.text.trim(),
+      'pincode': pincode,
+    };
+    // The single composed display string every existing consumer of
+    // address_text (notifications, admin-entry parity) still expects.
+    final addressText = [
+      if (components['house_no'] != null) components['house_no'],
+      if (components['address_line1'] != null) components['address_line1'],
+      if (components['sector'] != null) components['sector'],
+      if (components['landmark'] != null) 'near ${components['landmark']}',
+      if (components['city'] != null) components['city'],
+      if (components['state'] != null) components['state'],
+      pincode,
+    ].join(', ');
+
     setState(() => _saving = true);
     try {
-      await ParentApiClient.savePickupAddress(widget.studentId, addressText: address, latitude: lat, longitude: lon);
+      await ParentApiClient.savePickupAddress(
+        widget.studentId,
+        addressText: addressText,
+        latitude: _capturedLat!,
+        longitude: _capturedLon!,
+        addressComponents: components,
+      );
       if (mounted) Navigator.pop(context, true);
     } on ApiError catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
@@ -717,17 +840,53 @@ class _PickupAddressSheetState extends State<PickupAddressSheet> {
                   children: [
                     const Text('Pickup / Home Address', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.text)),
                     const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _locating ? null : _useCurrentLocation,
+                        icon: _locating
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.my_location, size: 18),
+                        label: Text(_capturedLat == null ? 'Use my current location' : 'Update from my current location'),
+                      ),
+                    ),
+                    if (_capturedLat != null)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text('Location captured — you can still edit the fields below.',
+                            style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                      ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(child: TextField(controller: _houseNoCtrl, decoration: const InputDecoration(labelText: 'House / Flat No.'))),
+                        const SizedBox(width: 10),
+                        Expanded(child: TextField(controller: _sectorCtrl, decoration: const InputDecoration(labelText: 'Sector / Area'))),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                     TextField(
-                      controller: _addressCtrl,
-                      decoration: const InputDecoration(labelText: 'Address', hintText: 'e.g. Flat 302, Green Meadows Society'),
+                      controller: _addressLine1Ctrl,
+                      decoration: const InputDecoration(labelText: 'Address Line 1', hintText: 'e.g. Green Meadows Society'),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _landmarkCtrl,
+                      decoration: const InputDecoration(labelText: 'Nearby Landmark (optional)'),
                     ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Expanded(child: TextField(controller: _latCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: const InputDecoration(labelText: 'Latitude'))),
+                        Expanded(child: TextField(controller: _cityCtrl, decoration: const InputDecoration(labelText: 'City'))),
                         const SizedBox(width: 10),
-                        Expanded(child: TextField(controller: _lonCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: const InputDecoration(labelText: 'Longitude'))),
+                        Expanded(child: TextField(controller: _stateCtrl, decoration: const InputDecoration(labelText: 'State'))),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _pincodeCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Pincode *'),
                     ),
                     const SizedBox(height: 14),
                     CheckboxListTile(
