@@ -3,6 +3,7 @@ import 'dart:developer' as dev;
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cache.dart';
 import 'device_context.dart';
@@ -431,6 +432,30 @@ class ParentApiClient {
     return jsonDecode(utf8.decode(res.bodyBytes));
   }
 
+  static Future<dynamic> _put(String path, Map<String, dynamic> body) async {
+    final base = await getBaseUrl();
+    final sw = Stopwatch()..start();
+    final res = await http.put(
+      Uri.parse('$base$path'),
+      headers: await _headers(),
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 20));
+    final ms = sw.elapsedMilliseconds;
+    final rid = res.headers['x-request-id'];
+    if (res.statusCode == 401) {
+      _log('PUT', path, 401, ms, requestId: rid, error: 'session expired');
+      await onUnauthorized?.call();
+      throw ApiError('Session expired. Please log in again.', 401, requestId: rid);
+    }
+    if (res.statusCode >= 400) {
+      final detail = _errorDetail(res);
+      _log('PUT', path, res.statusCode, ms, requestId: rid, error: detail);
+      throw ApiError(detail, res.statusCode, requestId: rid);
+    }
+    _log('PUT', path, res.statusCode, ms, requestId: rid);
+    return jsonDecode(utf8.decode(res.bodyBytes));
+  }
+
   static Future<dynamic> _post(String path, Map<String, dynamic> body, {bool handleUnauthorized = true}) async {
     final base = await getBaseUrl();
     final sw = Stopwatch()..start();
@@ -577,6 +602,45 @@ class ParentApiClient {
   /// docstring: a parent must never be able to enumerate buses).
   static Future<Map<String, dynamic>> getTransportLocation(String studentId) async {
     final data = await _get('/api/v1/parent/child/$studentId/transport/location');
+    return data as Map<String, dynamic>;
+  }
+
+  // TR-014 Decision C: the assigned route's road-snapped polyline, scoped by
+  // student_id (never a raw route/vehicle id -- same enumeration-prevention
+  // rule as getTransportLocation above).
+  static Future<List<LatLng>> getTransportRoutePath(String studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/transport/route-path');
+    final points = (data as Map<String, dynamic>)['points'] as List<dynamic>;
+    return points
+        .map((p) => LatLng((p['latitude'] as num).toDouble(), (p['longitude'] as num).toDouble()))
+        .toList();
+  }
+
+  // EDR-0027 (TR-014 Decision B): pickup/home address + live ETA, geofence
+  // proximity feature. The address itself is only ever read back to the
+  // parent who owns it -- see parent.py's own read-access comment.
+
+  static Future<Map<String, dynamic>?> getPickupAddress(String studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/pickup-address');
+    return (data as Map<String, dynamic>)['address'] as Map<String, dynamic>?;
+  }
+
+  static Future<void> savePickupAddress(
+    String studentId, {
+    required String addressText,
+    required double latitude,
+    required double longitude,
+  }) async {
+    await _put('/api/v1/parent/child/$studentId/pickup-address', {
+      'address_text': addressText,
+      'latitude': latitude,
+      'longitude': longitude,
+      'consent_confirmed': true, // gated on an explicit in-app confirmation dialog before this call
+    });
+  }
+
+  static Future<Map<String, dynamic>> getTransportEta(String studentId) async {
+    final data = await _get('/api/v1/parent/child/$studentId/transport-eta');
     return data as Map<String, dynamic>;
   }
 

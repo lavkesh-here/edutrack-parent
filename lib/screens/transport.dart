@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import '../core/api.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
@@ -28,18 +29,73 @@ class _State extends State<TransportScreen> {
   Timer? _locationTimer;
   static const _pollInterval = Duration(seconds: 25);
 
+  // EDR-0027 (TR-014 Decision B): pickup address + live ETA. Polled on the
+  // same cadence as live location, above -- both are cheap reads over the
+  // same underlying GPS data.
+  Map<String, dynamic>? _pickupAddress;
+  Map<String, dynamic>? _eta;
+  bool _addressLoading = true;
+
+  // TR-014 Decision C: the route's road-snapped polyline -- loaded once, not
+  // re-polled, since a route's shape doesn't change tick to tick.
+  List<LatLng>? _routePath;
+
   @override
   void initState() {
     super.initState();
     _load();
     _loadLocation();
-    _locationTimer = Timer.periodic(_pollInterval, (_) => _loadLocation());
+    _loadAddressAndEta();
+    _loadRoutePath();
+    _locationTimer = Timer.periodic(_pollInterval, (_) {
+      _loadLocation();
+      _loadAddressAndEta();
+    });
   }
 
   @override
   void dispose() {
     _locationTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadRoutePath() async {
+    try {
+      final points = await ParentApiClient.getTransportRoutePath(widget.child.studentId);
+      if (mounted) setState(() => _routePath = points);
+    } catch (_) {
+      // No path drawn is a harmless degradation -- the marker itself still works.
+    }
+  }
+
+  Future<void> _loadAddressAndEta() async {
+    try {
+      final address = await ParentApiClient.getPickupAddress(widget.child.studentId);
+      Map<String, dynamic>? eta;
+      if (address != null) {
+        try {
+          eta = await ParentApiClient.getTransportEta(widget.child.studentId);
+        } catch (_) {
+          eta = null; // ETA is a bonus on top of a saved address, never blocks the screen
+        }
+      }
+      if (mounted) setState(() { _pickupAddress = address; _eta = eta; _addressLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _addressLoading = false);
+    }
+  }
+
+  Future<void> _openAddressSheet() async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => PickupAddressSheet(
+        studentId: widget.child.studentId,
+        existing: _pickupAddress,
+      ),
+    );
+    if (saved == true) _loadAddressAndEta();
   }
 
   Future<void> _load() async {
@@ -76,7 +132,11 @@ class _State extends State<TransportScreen> {
               ? Center(child: Text(_error!, style: const TextStyle(color: AppColors.coral)))
               : _data == null || _data!['assigned'] == false
                   ? _NoTransport()
-                  : _Body(data: _data!, location: _location, locationLoading: _locationLoading),
+                  : _Body(
+                      data: _data!, location: _location, locationLoading: _locationLoading,
+                      pickupAddress: _pickupAddress, eta: _eta, addressLoading: _addressLoading,
+                      onEditAddress: _openAddressSheet, routePath: _routePath,
+                    ),
     );
   }
 }
@@ -104,7 +164,16 @@ class _Body extends StatelessWidget {
   final Map<String, dynamic> data;
   final Map<String, dynamic>? location;
   final bool locationLoading;
-  const _Body({required this.data, required this.location, required this.locationLoading});
+  final Map<String, dynamic>? pickupAddress;
+  final Map<String, dynamic>? eta;
+  final bool addressLoading;
+  final VoidCallback onEditAddress;
+  final List<LatLng>? routePath;
+  const _Body({
+    required this.data, required this.location, required this.locationLoading,
+    required this.pickupAddress, required this.eta, required this.addressLoading,
+    required this.onEditAddress, required this.routePath,
+  });
 
   String _v(String key, [String fallback = '—']) {
     final v = data[key];
@@ -119,8 +188,11 @@ class _Body extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _LiveLocationCard(location: location, loading: locationLoading),
+          _LiveLocationCard(location: location, loading: locationLoading, routePath: routePath),
           if (location != null) const SizedBox(height: 16),
+          if (!addressLoading)
+            _EtaAndAddressCard(pickupAddress: pickupAddress, eta: eta, onEdit: onEditAddress),
+          if (!addressLoading) const SizedBox(height: 16),
           // Time banner
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
@@ -254,7 +326,8 @@ enum _LiveState { live, recent, stale, none }
 class _LiveLocationCard extends StatelessWidget {
   final Map<String, dynamic>? location;
   final bool loading;
-  const _LiveLocationCard({required this.location, required this.loading});
+  final List<LatLng>? routePath;
+  const _LiveLocationCard({required this.location, required this.loading, required this.routePath});
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +392,7 @@ class _LiveLocationCard extends StatelessWidget {
     if (lat == null || lng == null) return shell;
     return Column(
       children: [
-        BusMap(latitude: lat, longitude: lng, isStale: state == _LiveState.stale, ignitionOn: ignitionOn),
+        BusMap(latitude: lat, longitude: lng, isStale: state == _LiveState.stale, ignitionOn: ignitionOn, routePath: routePath),
         const SizedBox(height: 10),
         shell,
       ],
@@ -368,6 +441,210 @@ class _Shell extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── ETA + pickup address (EDR-0027, TR-014 Decision B) ───────────────────────
+//
+// Simulator-only accuracy until a real GPS vendor is connected (GPS-01) --
+// this card doesn't know or care which data source it's reading, same as
+// the rest of the live-location plumbing above.
+
+class _EtaAndAddressCard extends StatelessWidget {
+  final Map<String, dynamic>? pickupAddress;
+  final Map<String, dynamic>? eta;
+  final VoidCallback onEdit;
+  const _EtaAndAddressCard({required this.pickupAddress, required this.eta, required this.onEdit});
+
+  @override
+  Widget build(BuildContext context) {
+    if (pickupAddress == null) {
+      return GestureDetector(
+        onTap: onEdit,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.tealLight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.teal.withOpacity(0.3), width: 1.5),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              const Text('📍', style: TextStyle(fontSize: 22)),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Add a pickup/home address', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.text)),
+                    SizedBox(height: 2),
+                    Text('Get an ETA and an alert when the bus is close', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.teal),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final etaMinutes = eta?['eta_minutes'];
+    final reason = eta?['reason'];
+    final subtitle = etaMinutes != null
+        ? 'Arriving in about ${etaMinutes.toStringAsFixed(0)} min'
+        : reason == 'no_live_position'
+            ? 'Waiting for the bus\'s live signal'
+            : 'ETA unavailable right now';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border, width: 1.5),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 40, height: 40,
+            decoration: const BoxDecoration(color: AppColors.tealLight, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: const Text('⏱️', style: TextStyle(fontSize: 16)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('ETA to your pickup address', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.text)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+              ],
+            ),
+          ),
+          TextButton(onPressed: onEdit, child: const Text('Edit')),
+        ],
+      ),
+    );
+  }
+}
+
+class PickupAddressSheet extends StatefulWidget {
+  final String studentId;
+  final Map<String, dynamic>? existing;
+  const PickupAddressSheet({super.key, required this.studentId, required this.existing});
+
+  @override
+  State<PickupAddressSheet> createState() => _PickupAddressSheetState();
+}
+
+class _PickupAddressSheetState extends State<PickupAddressSheet> {
+  late final _addressCtrl = TextEditingController(text: widget.existing?['address_text'] as String? ?? '');
+  late final _latCtrl = TextEditingController(text: widget.existing?['latitude']?.toString() ?? '');
+  late final _lonCtrl = TextEditingController(text: widget.existing?['longitude']?.toString() ?? '');
+  bool _consentChecked = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _addressCtrl.dispose();
+    _latCtrl.dispose();
+    _lonCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final address = _addressCtrl.text.trim();
+    final lat = double.tryParse(_latCtrl.text.trim());
+    final lon = double.tryParse(_lonCtrl.text.trim());
+    if (address.isEmpty || lat == null || lon == null) {
+      showSnack(context, 'Enter an address and valid coordinates', error: true);
+      return;
+    }
+    if (!_consentChecked) {
+      showSnack(context, 'Please confirm you agree to share this location', error: true);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await ParentApiClient.savePickupAddress(widget.studentId, addressText: address, latitude: lat, longitude: lon);
+      if (mounted) Navigator.pop(context, true);
+    } on ApiError catch (e) {
+      if (mounted) showSnack(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40, height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                alignment: Alignment.center,
+                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(20))),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Pickup / Home Address', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.text)),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _addressCtrl,
+                      decoration: const InputDecoration(labelText: 'Address', hintText: 'e.g. Flat 302, Green Meadows Society'),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(child: TextField(controller: _latCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: const InputDecoration(labelText: 'Latitude'))),
+                        const SizedBox(width: 10),
+                        Expanded(child: TextField(controller: _lonCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: const InputDecoration(labelText: 'Longitude'))),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    CheckboxListTile(
+                      value: _consentChecked,
+                      onChanged: (v) => setState(() => _consentChecked = v ?? false),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text(
+                        'I agree to share this location so EduTrack can show me an ETA and alert me when the bus is near.',
+                        style: TextStyle(fontSize: 12, color: AppColors.muted),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _saving ? null : _submit,
+                        child: _saving
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                            : const Text('Save'),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
