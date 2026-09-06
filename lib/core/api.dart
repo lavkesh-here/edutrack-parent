@@ -644,6 +644,14 @@ class ParentApiClient {
     return data as Map<String, dynamic>;
   }
 
+  // TR-019: "was my child's stop picked up/dropped on time this week" --
+  // deliberately NOT a full vehicle-route breadcrumb (stays admin-only).
+  static Future<List<Map<String, dynamic>>> getTransportStopHistory(String studentId, {int days = 7}) async {
+    final data = await _get('/api/v1/parent/child/$studentId/transport/stop-history?days=$days');
+    final history = (data as Map<String, dynamic>)['history'] as List<dynamic>;
+    return history.map((e) => e as Map<String, dynamic>).toList();
+  }
+
   static Future<Map<String, dynamic>> getFees(String studentId, {String? academicYear}) async {
     var path = '/api/v1/parent/child/$studentId/fees';
     if (academicYear != null) path += '?academic_year=$academicYear';

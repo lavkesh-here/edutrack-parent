@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -123,20 +124,17 @@ class _BusMapState extends State<BusMap> with SingleTickerProviderStateMixin {
                     markers: [
                       Marker(
                         point: _displayed,
-                        width: 40,
-                        height: 40,
+                        width: 34,
+                        height: 34,
                         child: Opacity(
                           opacity: widget.isStale ? 0.55 : 1,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.directions_bus, color: Colors.white, size: 20),
-                          ),
+                          // Live-verified feedback (2026-09-06, teacher_app's
+                          // GPS map): a proper bus glyph instead of a plain
+                          // circle+icon marker -- same drawn shape used there,
+                          // for visual parity across every map in the app.
+                          // No heading data flows to this endpoint yet, so it
+                          // stays upright rather than guessing a direction.
+                          child: BusGlyph(color: color, headingDeg: null, size: 34),
                         ),
                       ),
                     ],
@@ -167,6 +165,62 @@ class _BusMapState extends State<BusMap> with SingleTickerProviderStateMixin {
       ],
     );
   }
+}
+
+/// Same drawn bus silhouette as teacher_app's BusMap (kept in sync
+/// deliberately -- see that file's own docstring for the full reasoning);
+/// duplicated rather than shared because these two apps don't share a
+/// package, matching this file's existing "brought to parity" pattern for
+/// every other marker-styling decision.
+class BusGlyph extends StatelessWidget {
+  final Color color;
+  final double? headingDeg;
+  final double size;
+  const BusGlyph({super.key, required this.color, required this.headingDeg, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: (headingDeg ?? 0) * math.pi / 180,
+      child: CustomPaint(
+        size: Size(size, size),
+        painter: _BusGlyphPainter(color: color),
+      ),
+    );
+  }
+}
+
+class _BusGlyphPainter extends CustomPainter {
+  final Color color;
+  const _BusGlyphPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final body = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.22, h * 0.06, w * 0.56, h * 0.88),
+      Radius.circular(w * 0.14),
+    );
+    canvas.drawRRect(body, Paint()..color = Colors.black26..style = PaintingStyle.fill);
+    canvas.drawRRect(body.shift(const Offset(0, -1)), Paint()..color = color..style = PaintingStyle.fill);
+    canvas.drawRRect(
+      body.shift(const Offset(0, -1)),
+      Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = w * 0.045,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.30, h * 0.12, w * 0.40, h * 0.16),
+        Radius.circular(w * 0.05),
+      ),
+      Paint()..color = Colors.white.withOpacity(0.85),
+    );
+    final headlightPaint = Paint()..color = const Color(0xFFFFE58A);
+    canvas.drawCircle(Offset(w * 0.30, h * 0.10), w * 0.045, headlightPaint);
+    canvas.drawCircle(Offset(w * 0.70, h * 0.10), w * 0.045, headlightPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BusGlyphPainter old) => old.color != color;
 }
 
 class FullscreenBusMap extends StatelessWidget {

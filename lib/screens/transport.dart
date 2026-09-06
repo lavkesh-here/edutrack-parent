@@ -40,6 +40,11 @@ class _State extends State<TransportScreen> {
   // re-polled, since a route's shape doesn't change tick to tick.
   List<LatLng>? _routePath;
 
+  // TR-019: this child's recent stop-history -- loaded once per screen open,
+  // same as routePath above; it's a look-back over already-recorded events,
+  // not something that changes tick to tick like live location.
+  List<Map<String, dynamic>>? _stopHistory;
+
   @override
   void initState() {
     super.initState();
@@ -47,10 +52,21 @@ class _State extends State<TransportScreen> {
     _loadLocation();
     _loadAddressAndEta();
     _loadRoutePath();
+    _loadStopHistory();
     _locationTimer = Timer.periodic(_pollInterval, (_) {
       _loadLocation();
       _loadAddressAndEta();
     });
+  }
+
+  Future<void> _loadStopHistory() async {
+    try {
+      final history = await ParentApiClient.getTransportStopHistory(widget.child.studentId);
+      if (mounted) setState(() => _stopHistory = history);
+    } catch (_) {
+      // Same graceful-degradation rule as the rest of this screen -- a
+      // history card that fails to load just doesn't render.
+    }
   }
 
   @override
@@ -136,6 +152,7 @@ class _State extends State<TransportScreen> {
                       data: _data!, location: _location, locationLoading: _locationLoading,
                       pickupAddress: _pickupAddress, eta: _eta, addressLoading: _addressLoading,
                       onEditAddress: _openAddressSheet, routePath: _routePath,
+                      stopHistory: _stopHistory,
                     ),
     );
   }
@@ -169,10 +186,11 @@ class _Body extends StatelessWidget {
   final bool addressLoading;
   final VoidCallback onEditAddress;
   final List<LatLng>? routePath;
+  final List<Map<String, dynamic>>? stopHistory;
   const _Body({
     required this.data, required this.location, required this.locationLoading,
     required this.pickupAddress, required this.eta, required this.addressLoading,
-    required this.onEditAddress, required this.routePath,
+    required this.onEditAddress, required this.routePath, required this.stopHistory,
   });
 
   String _v(String key, [String fallback = '—']) {
@@ -237,6 +255,7 @@ class _Body extends StatelessWidget {
 
           // Driver
           _Card(title: 'DRIVER', children: [
+            if (data['driver_photo_url'] != null) _StaffPhotoRow(photoUrl: data['driver_photo_url'] as String),
             _Row(label: 'Name', value: _v('driver_name')),
             _Row(label: 'Phone', value: _v('driver_phone')),
           ]),
@@ -244,9 +263,15 @@ class _Body extends StatelessWidget {
           if (data['helper_name'] != null && data['helper_name'].toString().isNotEmpty) ...[
             const SizedBox(height: 12),
             _Card(title: 'HELPER', children: [
+              if (data['helper_photo_url'] != null) _StaffPhotoRow(photoUrl: data['helper_photo_url'] as String),
               _Row(label: 'Name', value: _v('helper_name')),
               _Row(label: 'Phone', value: _v('helper_phone')),
             ]),
+          ],
+
+          if (stopHistory != null) ...[
+            const SizedBox(height: 12),
+            _StopHistoryCard(history: stopHistory!),
           ],
 
           const SizedBox(height: 24),
@@ -294,6 +319,31 @@ class _Card extends StatelessWidget {
       );
 }
 
+// TR-020: driver/helper photo, only ever present when an admin/dispatch
+// teacher has confirmed the driver/helper's consent for it (see
+// transport_staff.photo_consent_confirmed_at, backend-side) -- this widget
+// just renders whatever the backend already gated, no consent logic here.
+class _StaffPhotoRow extends StatelessWidget {
+  final String photoUrl;
+  const _StaffPhotoRow({required this.photoUrl});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: ClipOval(
+          child: Image.network(
+            photoUrl, width: 56, height: 56, fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              width: 56, height: 56,
+              decoration: const BoxDecoration(color: AppColors.tealLight, shape: BoxShape.circle),
+              alignment: Alignment.center,
+              child: const Text('👤', style: TextStyle(fontSize: 22)),
+            ),
+          ),
+        ),
+      );
+}
+
 class _Row extends StatelessWidget {
   final String label;
   final String value;
@@ -309,6 +359,69 @@ class _Row extends StatelessWidget {
           ],
         ),
       );
+}
+
+// ── Stop history (TR-019) ────────────────────────────────────────────────────
+//
+// Deliberately just this one child's own recent pickup/drop outcomes -- not
+// a full-vehicle route map/breadcrumb (that stays admin-only, TR-021).
+
+class _StopHistoryCard extends StatelessWidget {
+  final List<Map<String, dynamic>> history;
+  const _StopHistoryCard({required this.history});
+
+  (String, Color, Color) _statusStyle(String status) {
+    switch (status) {
+      case 'completed':
+        return ('On time', AppColors.teal, AppColors.tealLight);
+      case 'missed':
+        return ('Missed', AppColors.coral, AppColors.coralLight);
+      case 'cancelled':
+        return ('Cancelled', AppColors.muted, const Color(0xFFF3F4F6));
+      default:
+        return ('Pending', AppColors.muted, const Color(0xFFF3F4F6));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      title: 'STOP HISTORY (LAST 7 DAYS)',
+      children: history.isEmpty
+          ? const [
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: Text('No pickup/drop activity recorded yet.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+              ),
+            ]
+          : history.map((entry) {
+              final (label, fg, bg) = _statusStyle(entry['status']?.toString() ?? 'pending');
+              final direction = entry['direction']?.toString() == 'drop' ? 'Drop' : 'Pickup';
+              final stopName = entry['stop_name']?.toString();
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${entry['date']} · $direction', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.text)),
+                          if (stopName != null) Text(stopName, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+                      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+    );
+  }
 }
 
 // ── Live location (TR-006/EDR-0019) ─────────────────────────────────────────
