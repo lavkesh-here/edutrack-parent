@@ -29,10 +29,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Flutter 3.24.5
+      - name: Set up Flutter 3.27.4
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
+          flutter-version: '3.27.4'
           channel: stable
 
       - name: Generate Android project
@@ -46,6 +46,15 @@ jobs:
           sed -i 's/import io.flutter.embedding.android.FlutterActivity/import io.flutter.embedding.android.FlutterFragmentActivity/' "$MAIN"
           sed -i 's/class MainActivity: FlutterActivity()/class MainActivity: FlutterFragmentActivity()/' "$MAIN"
 
+      - name: Bump AGP to 8.1.1
+        run: |
+          # Flutter 3.27+ puts AGP version in settings.gradle pluginManagement block
+          # AGP 8.1.1 is minimum required by androidx.webkit:1.14.0; needs only Gradle 8.0 (satisfied)
+          # -- same fix as edutrack-teacher (geolocator_android needs Flutter 3.27.4+, see
+          # backend LESSONS_LEARNED.md's Flutter Android CI entry).
+          sed -i 's/id "com.android.application" version "[0-9.]*" apply false/id "com.android.application" version "8.1.1" apply false/' android/settings.gradle || true
+          sed -i 's/com\.android\.tools\.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.1.1/' android/build.gradle || true
+
       - name: Set app label to Edtrack Parent (Dev)
         run: |
           sed -i 's/android:label="edutrack_parent"/android:label="Edtrack Parent (Dev)"/' \
@@ -55,6 +64,13 @@ jobs:
         run: |
           sed -i 's/minifyEnabled true/minifyEnabled false/g' android/app/build.gradle
           sed -i 's/shrinkResources true/shrinkResources false/g' android/app/build.gradle
+          # minifyEnabled/shrinkResources alone don't stop R8 full-mode class
+          # verification, which crashes several plugins this app uses (image_picker,
+          # flutter_local_notifications, firebase_crashlytics) with
+          # IncompatibleClassChangeError on Flutter 3.27.x with AGP 8.1-8.4
+          # (flutter/flutter#146266, #161478) -- same fix already applied in
+          # edutrack-teacher's workflow.
+          echo 'android.enableR8.fullMode=false' >> android/gradle.properties
 
       - name: Add permissions
         run: |
@@ -67,6 +83,10 @@ jobs:
           sed -i '/<manifest/a\    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' \
             android/app/src/main/AndroidManifest.xml
           sed -i '/<manifest/a\    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>' \
+            android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>' \
+            android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>' \
             android/app/src/main/AndroidManifest.xml
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' \
             android/app/src/main/AndroidManifest.xml
@@ -162,10 +182,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Flutter 3.24.5
+      - name: Set up Flutter 3.27.4
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
+          flutter-version: '3.27.4'
           channel: stable
 
       # NOTE: org is a placeholder (com.edutrack, no .dev suffix) chosen so a prod
@@ -183,6 +203,15 @@ jobs:
           sed -i 's/import io.flutter.embedding.android.FlutterActivity/import io.flutter.embedding.android.FlutterFragmentActivity/' "$MAIN"
           sed -i 's/class MainActivity: FlutterActivity()/class MainActivity: FlutterFragmentActivity()/' "$MAIN"
 
+      - name: Bump AGP to 8.1.1
+        run: |
+          # Flutter 3.27+ puts AGP version in settings.gradle pluginManagement block
+          # AGP 8.1.1 is minimum required by androidx.webkit:1.14.0; needs only Gradle 8.0 (satisfied)
+          # -- same fix as edutrack-teacher (geolocator_android needs Flutter 3.27.4+, see
+          # backend LESSONS_LEARNED.md's Flutter Android CI entry).
+          sed -i 's/id "com.android.application" version "[0-9.]*" apply false/id "com.android.application" version "8.1.1" apply false/' android/settings.gradle || true
+          sed -i 's/com\.android\.tools\.build:gradle:[0-9.]*/com.android.tools.build:gradle:8.1.1/' android/build.gradle || true
+
       - name: Set app label to Edtrack Parent
         run: |
           sed -i 's/android:label="edutrack_parent"/android:label="Edtrack Parent"/' \
@@ -192,6 +221,13 @@ jobs:
         run: |
           sed -i 's/minifyEnabled true/minifyEnabled false/g' android/app/build.gradle
           sed -i 's/shrinkResources true/shrinkResources false/g' android/app/build.gradle
+          # minifyEnabled/shrinkResources alone don't stop R8 full-mode class
+          # verification, which crashes several plugins this app uses (image_picker,
+          # flutter_local_notifications, firebase_crashlytics) with
+          # IncompatibleClassChangeError on Flutter 3.27.x with AGP 8.1-8.4
+          # (flutter/flutter#146266, #161478) -- same fix already applied in
+          # edutrack-teacher's workflow.
+          echo 'android.enableR8.fullMode=false' >> android/gradle.properties
 
       - name: Add permissions
         run: |
@@ -204,6 +240,10 @@ jobs:
           sed -i '/<manifest/a\    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>' \
             android/app/src/main/AndroidManifest.xml
           sed -i '/<manifest/a\    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>' \
+            android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>' \
+            android/app/src/main/AndroidManifest.xml
+          sed -i '/<manifest/a\    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>' \
             android/app/src/main/AndroidManifest.xml
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' \
             android/app/src/main/AndroidManifest.xml
